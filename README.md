@@ -8,6 +8,10 @@ OpportunityFinder is an AI-assisted opportunity discovery app for scholarships, 
 - `frontend/` - static UI that talks to the API
 - `opportunities.db` - local SQLite database used during development
 
+## Quick start (Windows)
+
+Double-click `start.bat` in the repo root. The app opens at http://127.0.0.1:8000/ with curated opportunities loaded immediately; a background scrape adds more within a few minutes. Click **Find New** anytime to refresh.
+
 ## Local development
 
 ### Backend

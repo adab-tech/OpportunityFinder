@@ -116,6 +116,34 @@ function syncNavPills(type) {
   });
 }
 
+/* Poll scraper status until idle, refreshing the grid as results arrive */
+let _pollTimer = null;
+function pollWhileScraping() {
+  if (_pollTimer) clearInterval(_pollTimer);
+  let ticks = 0;
+  const MAX_TICKS = 36; /* ~3 minutes */
+  _pollTimer = setInterval(async () => {
+    ticks += 1;
+    fetchStats();
+    fetchOpportunities();
+    try {
+      const res = await fetch(`${API_BASE}/scraper/status`);
+      if (res.ok) {
+        const s = await res.json();
+        if (!s.scraping_in_progress || ticks >= MAX_TICKS) {
+          clearInterval(_pollTimer);
+          _pollTimer = null;
+          modal.style.display = 'none';
+          fetchStats();
+          fetchOpportunities();
+          if (s.scraping_in_progress) toast('Scrape still running in background.', 'warn');
+          else toast('Scrape finished. Browse the latest results.');
+        }
+      }
+    } catch (_) { /* ignore */ }
+  }, 5000);
+}
+
 /* ==========================================================================
    API calls
    ========================================================================== */
@@ -172,11 +200,9 @@ async function triggerScrape() {
 
     if (res.ok) {
       toast('Scraping started! Results will appear automatically.');
-      /* Refresh stats & cards periodically while scraping runs */
-      [5000, 20000, 45000, 90000].forEach(ms => {
-        setTimeout(() => { fetchStats(); fetchOpportunities(); }, ms);
-      });
+      pollWhileScraping();
     } else if (res.status === 409) {
+      pollWhileScraping();
       toast('Scraping is already running. Please wait.', 'warn');
     } else {
       toast('Could not start scraping. Check the API server.', 'error');

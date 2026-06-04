@@ -1,4 +1,5 @@
 import logging
+import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -6,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
+from app.bootstrap import run_startup_tasks
 from app.database import engine, Base
 from app.routes import opportunities, scraper
 from app.scheduler import start_scheduler, shutdown_scheduler
@@ -24,6 +26,7 @@ async def lifespan(app: FastAPI):
     # ---- startup ----
     Base.metadata.create_all(bind=engine)
     start_scheduler()
+    threading.Thread(target=run_startup_tasks, daemon=True).start()
     logger.info("OpportunityFinder API is ready.")
     yield
     # ---- shutdown ----
