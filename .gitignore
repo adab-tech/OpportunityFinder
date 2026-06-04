@@ -23,8 +23,7 @@ Hausa AI/
 *.jpeg
 *.PNG
 *.png
-*.bat
-!start.bat
+# keep start.bat tracked (do not ignore *.bat globally)
 
 # Logs and local artifacts
 backend/pip_fail_log.txt
