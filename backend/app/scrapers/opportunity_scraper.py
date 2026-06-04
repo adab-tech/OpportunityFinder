@@ -1,0 +1,183 @@
+"""
+Main scraping orchestrator.
+Combines Google search discovery with direct site scraping,
+deduplicates by URL, and persists results to the database.
+"""
+
+import logging
+from typing import List, Dict, Optional, Any
+from sqlalchemy.orm import Session
+
+from app.scrapers.base_scraper import BaseScraper
+from app.scrapers.google_scraper import GoogleScraper
+from app.scrapers.keywords import OPPORTUNITY_SITES, build_google_queries
+from app.models import Opportunity
+from app.config import settings
+
+logger = logging.getLogger(__name__)
+
+
+class OpportunityScraper:
+    def __init__(self, db: Session):
+        self.db = db
+        self.base = BaseScraper()
+        self.google = GoogleScraper()
+        self.stats = {"scraped": 0, "saved": 0, "errors": 0}
+
+    # ------------------------------------------------------------------
+    # Database helpers
+    # ------------------------------------------------------------------
+
+    def _url_exists(self, url: str) -> bool:
+        return (
+            self.db.query(Opportunity).filter(Opportunity.url == url).first()
+            is not None
+        )
+
+    def _save(self, data: Dict[str, Any]) -> bool:
+        """Persist one opportunity; silently skip duplicates or empty titles."""
+        url = (data.get("url") or "").strip()
+        title = (data.get("title") or "").strip()
+        if not url or not title or len(title) < 5:
+            return False
+        if self._url_exists(url):
+            return False
+
+        try:
+            opp = Opportunity(
+                title=title[:500],
+                description=(data.get("description") or "")[:2000] or None,
+                opportunity_type=data.get("opportunity_type", "other"),
+                field=data.get("field"),
+                location=data.get("location"),
+                deadline=data.get("deadline"),
+                url=url[:2000],
+                source_name=data.get("source_name"),
+                tags=data.get("tags"),
+            )
+            self.db.add(opp)
+            self.db.commit()
+            self.stats["saved"] += 1
+            return True
+        except Exception as exc:
+            logger.error(f"DB save error: {exc}")
+            self.db.rollback()
+            self.stats["errors"] += 1
+            return False
+
+    # ------------------------------------------------------------------
+    # Page parsing
+    # ------------------------------------------------------------------
+
+    def _parse_page(self, url: str, opportunity_type: str) -> Optional[Dict[str, Any]]:
+        """Fetch URL and extract opportunity metadata."""
+        soup = self.base.fetch_page(url)
+        if not soup:
+            return None
+
+        self.stats["scraped"] += 1
+        full_text = soup.get_text(separator=" ")
+
+        title = self.base.get_page_title(soup)
+        description = self.base.get_page_description(soup)
+        combined = f"{title or ''} {description or ''} {full_text[:3000]}"
+
+        return {
+            "title": title,
+            "description": description,
+            "opportunity_type": opportunity_type,
+            "field": self.base.extract_field(combined),
+            "location": self.base.extract_location(combined),
+            "deadline": self.base.extract_deadline(full_text),
+            "url": url,
+            "source_name": self.base.get_domain_name(url),
+        }
+
+    # ------------------------------------------------------------------
+    # Scraping strategies
+    # ------------------------------------------------------------------
+
+    def scrape_via_google(
+        self,
+        opportunity_type: str,
+        extra_keywords: Optional[List[str]] = None,
+        max_count: int = 20,
+    ) -> int:
+        """Discover URLs through Google search and scrape each one."""
+        queries = build_google_queries(opportunity_type, extra_keywords)
+        count = 0
+        seen: set = set()
+
+        for query in queries:
+            if count >= max_count:
+                break
+            logger.info(f"[Google] Query: {query}")
+            urls = self.google.search(query, num_results=settings.MAX_RESULTS_PER_QUERY)
+
+            for url in urls:
+                if count >= max_count:
+                    break
+                if url in seen or self._url_exists(url):
+                    continue
+                seen.add(url)
+
+                data = self._parse_page(url, opportunity_type)
+                if data and self._save(data):
+                    count += 1
+                    logger.info(f"  ✓ Saved: {data['title'][:70]}")
+
+        return count
+
+    def scrape_known_sites(self, opportunity_type: str) -> int:
+        """Scrape curated listing pages and follow article links."""
+        count = 0
+        for site_url in OPPORTUNITY_SITES.get(opportunity_type, []):
+            logger.info(f"[Site] Scraping: {site_url}")
+            soup = self.base.fetch_page(site_url)
+            if not soup:
+                continue
+
+            # Extract article links from common CMS patterns
+            links = []
+            for a in soup.select(
+                "article a, .entry-title a, h2 a, h3 a, .post-title a, .listing-title a"
+            ):
+                href = a.get("href", "")
+                if href.startswith("http") and not self._url_exists(href):
+                    links.append(href)
+
+            for url in links[:10]:          # max 10 articles per listing page
+                data = self._parse_page(url, opportunity_type)
+                if data and self._save(data):
+                    count += 1
+                    logger.info(f"  ✓ Saved: {data['title'][:70]}")
+
+        return count
+
+    # ------------------------------------------------------------------
+    # Public entry point
+    # ------------------------------------------------------------------
+
+    def run(
+        self,
+        opportunity_types: Optional[List[str]] = None,
+        extra_keywords: Optional[List[str]] = None,
+        max_results: int = 50,
+    ) -> Dict:
+        """Run the full scraping pipeline for all requested types."""
+        if opportunity_types is None:
+            opportunity_types = ["scholarship", "fellowship", "grant", "job"]
+
+        max_per_type = max(10, max_results // len(opportunity_types))
+
+        for opp_type in opportunity_types:
+            logger.info(f"=== Starting scrape: {opp_type.upper()} ===")
+
+            direct = self.scrape_known_sites(opp_type)
+            logger.info(f"  Known sites → {direct} new items")
+
+            via_google = self.scrape_via_google(opp_type, extra_keywords, max_per_type)
+            logger.info(f"  Google search → {via_google} new items")
+
+        logger.info(f"Scrape complete. Stats: {self.stats}")
+        return self.stats

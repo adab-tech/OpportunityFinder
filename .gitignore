@@ -1,0 +1,31 @@
+# Python
+.venv/
+**/.venv/
+__pycache__/
+*.py[cod]
+.env
+*.db
+
+# IDE / OS
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Nested Hausa AI copy (published separately as hausa-ai)
+Hausa AI/
+
+# Personal documents and assets (not part of OpportunityFinder)
+*.pdf
+*.docx
+*.doc
+*.zip
+*.jpg
+*.jpeg
+*.PNG
+*.png
+*.bat
+!start.bat
+
+# Logs and local artifacts
+backend/pip_fail_log.txt
+dashboard_screenshot.png

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OpportunityFinder — Scholarships, Fellowships, Grants & Jobs</title>
+  <meta name="description" content="Discover thousands of scholarships, fellowships, grants, and job opportunities worldwide — updated automatically by AI-powered web mining." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- ═══════════════════════════ HEADER ═══════════════════════════ -->
+  <header class="header">
+    <div class="container">
+      <div class="header-inner">
+        <div class="brand">
+          <span class="brand-icon">🎯</span>
+          <div>
+            <div class="brand-name">OpportunityFinder</div>
+            <div class="brand-sub">Your gateway to global opportunities</div>
+          </div>
+        </div>
+
+        <nav class="top-nav" id="topNav">
+          <button class="nav-pill active" data-type="">All</button>
+          <button class="nav-pill" data-type="scholarship">🎓 Scholarships</button>
+          <button class="nav-pill" data-type="fellowship">🔬 Fellowships</button>
+          <button class="nav-pill" data-type="grant">💰 Grants</button>
+          <button class="nav-pill" data-type="job">💼 Jobs</button>
+        </nav>
+
+        <button class="btn-find" id="scrapeBtn">
+          <span>🔍</span> Find New
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════ HERO ════════════════════════════ -->
+  <section class="hero">
+    <div class="container">
+      <h1 class="hero-title">Discover Your Next <span class="gradient-text">Opportunity</span></h1>
+      <p class="hero-sub">
+        AI-powered search scours the web for scholarships, fellowships, grants, and jobs — refreshed automatically every 6 hours.
+      </p>
+      <div class="search-bar">
+        <input id="searchInput" class="search-input" type="text"
+               placeholder="Search by keyword, field, organisation, location…" />
+        <button class="search-submit" id="searchBtn">Search</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════ STATS ════════════════════════════ -->
+  <section class="stats-bar">
+    <div class="container">
+      <div class="stats-grid">
+        <div class="stat stat-all">
+          <div class="stat-num" id="stat-total">—</div>
+          <div class="stat-label">Total</div>
+        </div>
+        <div class="stat stat-scholarship">
+          <div class="stat-num" id="stat-scholarship">—</div>
+          <div class="stat-label">Scholarships</div>
+        </div>
+        <div class="stat stat-fellowship">
+          <div class="stat-num" id="stat-fellowship">—</div>
+          <div class="stat-label">Fellowships</div>
+        </div>
+        <div class="stat stat-grant">
+          <div class="stat-num" id="stat-grant">—</div>
+          <div class="stat-label">Grants</div>
+        </div>
+        <div class="stat stat-job">
+          <div class="stat-num" id="stat-job">—</div>
+          <div class="stat-label">Jobs</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════ MAIN ════════════════════════════ -->
+  <main class="main">
+    <div class="container">
+
+      <!-- Filters -->
+      <div class="filters">
+        <div class="type-pills">
+          <button class="pill active" data-filter="type" data-value="">All Types</button>
+          <button class="pill type-scholarship" data-filter="type" data-value="scholarship">🎓 Scholarships</button>
+          <button class="pill type-fellowship" data-filter="type" data-value="fellowship">🔬 Fellowships</button>
+          <button class="pill type-grant"       data-filter="type" data-value="grant">💰 Grants</button>
+          <button class="pill type-job"         data-filter="type" data-value="job">💼 Jobs</button>
+        </div>
+        <div class="select-group">
+          <select id="fieldFilter" class="fselect">
+            <option value="">All Fields</option>
+            <option>STEM</option>
+            <option>Medicine &amp; Health</option>
+            <option>Arts &amp; Design</option>
+            <option>Humanities</option>
+            <option>Social Sciences</option>
+            <option>Business</option>
+            <option>Law</option>
+            <option>Engineering</option>
+            <option>Education</option>
+            <option>Environment</option>
+            <option>Agriculture</option>
+            <option>Journalism &amp; Media</option>
+            <option>International Development</option>
+          </select>
+          <select id="locationFilter" class="fselect">
+            <option value="">All Locations</option>
+            <option>International</option>
+            <option>Global</option>
+            <option>Remote</option>
+            <option>USA</option>
+            <option>UK</option>
+            <option>Canada</option>
+            <option>Australia</option>
+            <option>Germany</option>
+            <option>France</option>
+            <option>Africa</option>
+            <option>Europe</option>
+            <option>Asia</option>
+            <option>Latin America</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Results meta -->
+      <p class="results-meta" id="resultsMeta"></p>
+
+      <!-- Loading -->
+      <div id="loading" class="loading" style="display:none">
+        <div class="spinner"></div>
+        <p>Loading opportunities…</p>
+      </div>
+
+      <!-- Empty state -->
+      <div id="emptyState" class="empty" style="display:none">
+        <div class="empty-icon">🔍</div>
+        <h3>No opportunities found yet</h3>
+        <p id="emptyMsg">Click <strong>Find New</strong> to start mining the web for opportunities.</p>
+        <button class="btn-primary" id="emptyBtn">Find Opportunities Now</button>
+      </div>
+
+      <!-- Cards grid -->
+      <div class="grid" id="grid"></div>
+
+      <!-- Pagination -->
+      <div class="pagination" id="pagination"></div>
+
+    </div>
+  </main>
+
+  <!-- ═══════════════════════════ SCRAPE MODAL ══════════════════════ -->
+  <div id="modal" class="modal-overlay" style="display:none">
+    <div class="modal-box">
+      <div class="modal-icon">🚀</div>
+      <h3>Mining the Web…</h3>
+      <p>Searching for scholarships, fellowships, grants, and jobs. This runs in the background — you can close this dialog.</p>
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      <p class="modal-note">New results will appear automatically as they are found.</p>
+      <button class="btn-outline" id="closeModal">Close &amp; Continue in Background</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════ FOOTER ═══════════════════════════ -->
+  <footer class="footer">
+    <div class="container footer-inner">
+      <span><strong>OpportunityFinder</strong> — Powered by AI-driven web mining</span>
+      <span class="footer-note">Data is publicly sourced. Always verify opportunities directly with the issuing organisation.</span>
+    </div>
+  </footer>
+
+  <script src="config.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
