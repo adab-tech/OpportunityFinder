@@ -1,7 +1,7 @@
 # Fly.io — one app serves API + static frontend on the same origin.
 # See docs/DEPLOY.md for first-time setup.
 
-app = 'opportunityfinder'
+app = 'adab-opportunityfinder'
 primary_region = 'lhr'
 
 [build]

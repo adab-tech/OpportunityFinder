@@ -20,27 +20,26 @@ Stop: `docker compose down` (add `-v` to wipe the database).
 1. Install the [Fly CLI](https://fly.io/docs/hands-on/install-flyctl/) and run `fly auth login`.
 2. From the repo root:
 
-```powershell
-fly launch --no-deploy
-fly postgres create --name opportunityfinder-db --region lhr
-fly postgres attach opportunityfinder-db
-```
-
-3. Set secrets (Fly sets `DATABASE_URL` when you attach Postgres):
+**One-command deploy** (after `fly auth login`):
 
 ```powershell
-fly secrets set ENABLE_SCHEDULER=true
-# Optional Google CSE:
-# fly secrets set GOOGLE_API_KEY=... GOOGLE_CSE_ID=...
+cd "C:\Users\Adamu\Desktop\Project 101"
+.\scripts\deploy-fly.ps1
 ```
 
-4. Deploy:
+App name: **`adab-opportunityfinder`** → **https://adab-opportunityfinder.fly.dev**
+
+Manual steps (equivalent):
 
 ```powershell
-fly deploy
+fly launch --no-deploy --name adab-opportunityfinder --region lhr
+fly postgres create --name adab-opportunityfinder-db --region lhr --vm-size shared-cpu-1x --volume-size 1
+fly postgres attach adab-opportunityfinder-db -a adab-opportunityfinder
+fly deploy -a adab-opportunityfinder
+fly open -a adab-opportunityfinder
 ```
 
-5. Open the app: `fly open`
+`DATABASE_URL` from Fly Postgres is normalized automatically for SQLAlchemy + psycopg2.
 
 ### Custom domain on Fly
 

@@ -1,4 +1,4 @@
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List, Optional
 
@@ -8,6 +8,17 @@ class Settings(BaseSettings):
 
     # Database — use Postgres in production (see docs/DEPLOY.md)
     DATABASE_URL: str = "sqlite:///./opportunities.db"
+
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def normalize_database_url(cls, value):
+        if not isinstance(value, str):
+            return value
+        if value.startswith("postgres://"):
+            return value.replace("postgres://", "postgresql+psycopg2://", 1)
+        if value.startswith("postgresql://") and "+psycopg2" not in value:
+            return value.replace("postgresql://", "postgresql+psycopg2://", 1)
+        return value
 
     # Google Custom Search API (optional)
     GOOGLE_API_KEY: Optional[str] = None
