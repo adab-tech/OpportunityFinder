@@ -11,7 +11,7 @@ _scheduler = BackgroundScheduler()
 
 
 def _scheduled_task():
-    logger.info("Scheduled scrape triggered.")
+    logger.info("Scheduled ingest triggered.")
     db = SessionLocal()
     try:
         scraper = OpportunityScraper(db)

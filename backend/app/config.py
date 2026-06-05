@@ -1,30 +1,37 @@
-from pydantic_settings import BaseSettings
-from typing import Optional
+from pydantic import AliasChoices, Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import List, Optional
 
 
 class Settings(BaseSettings):
-    # Database
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
+
+    # Database — use Postgres in production (see docs/DEPLOY.md)
     DATABASE_URL: str = "sqlite:///./opportunities.db"
 
-    # Google Custom Search API (optional — raises daily limit to 10,000)
-    # Get keys at: https://developers.google.com/custom-search/v1/introduction
+    # Google Custom Search API (optional)
     GOOGLE_API_KEY: Optional[str] = None
     GOOGLE_CSE_ID: Optional[str] = None
 
-    # Scraping behavior
+    # Scraping behaviour
     SCRAPE_INTERVAL_HOURS: int = 6
     MAX_RESULTS_PER_QUERY: int = 10
     REQUEST_DELAY_SECONDS: float = 2.0
     REQUEST_TIMEOUT: int = 15
     MAX_RETRIES: int = 3
+    RSS_MAX_ENTRIES_PER_FEED: int = 25
 
-    # Server
+    # Server / deployment
     API_HOST: str = "0.0.0.0"
-    API_PORT: int = 8000
+    API_PORT: int = Field(default=8000, validation_alias=AliasChoices("PORT", "API_PORT"))
+    ENABLE_SCHEDULER: bool = True
+    CORS_ORIGINS: str = "*"
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
+    def cors_origin_list(self) -> List[str]:
+        raw = (self.CORS_ORIGINS or "*").strip()
+        if raw == "*":
+            return ["*"]
+        return [o.strip() for o in raw.split(",") if o.strip()]
 
 
 settings = Settings()

@@ -11,8 +11,9 @@ from sqlalchemy.orm import Session
 from app.scrapers.base_scraper import BaseScraper
 from app.scrapers.google_scraper import GoogleScraper
 from app.scrapers.keywords import OPPORTUNITY_SITES, build_google_queries
-from app.models import Opportunity
+from app.scrapers.rss_ingest import RssIngestor
 from app.config import settings
+from app.models import Opportunity
 
 logger = logging.getLogger(__name__)
 
@@ -167,6 +168,11 @@ class OpportunityScraper:
         """Run the full scraping pipeline for all requested types."""
         if opportunity_types is None:
             opportunity_types = ["scholarship", "fellowship", "grant", "job"]
+
+        rss_stats = RssIngestor(self.db).run(
+            max_entries_per_feed=settings.RSS_MAX_ENTRIES_PER_FEED
+        )
+        logger.info("RSS ingest → %s new items (%s)", rss_stats.get("saved", 0), rss_stats)
 
         max_per_type = max(10, max_results // len(opportunity_types))
 

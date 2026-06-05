@@ -7,6 +7,8 @@ from typing import Any, Dict, List
 from app.database import SessionLocal
 from app.models import Opportunity
 from app.scrapers.opportunity_scraper import OpportunityScraper
+from app.scrapers.rss_ingest import RssIngestor
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -174,6 +176,19 @@ def seed_curated_opportunities(db) -> int:
     return added
 
 
+def run_rss_ingest() -> None:
+    db = SessionLocal()
+    try:
+        stats = RssIngestor(db).run(
+            max_entries_per_feed=settings.RSS_MAX_ENTRIES_PER_FEED
+        )
+        logger.info("Startup RSS ingest finished: %s", stats)
+    except Exception as exc:
+        logger.error("Startup RSS ingest failed: %s", exc)
+    finally:
+        db.close()
+
+
 def run_background_scrape(max_results: int = 40) -> None:
     db = SessionLocal()
     try:
@@ -194,6 +209,9 @@ def run_startup_tasks() -> None:
             seeded = seed_curated_opportunities(db)
             logger.info("Seeded %s curated opportunities.", seeded)
             total = db.query(Opportunity).filter(Opportunity.is_active == True).count()
+
+        threading.Thread(target=run_rss_ingest, daemon=True).start()
+
         if total < 25:
             threading.Thread(
                 target=run_background_scrape,

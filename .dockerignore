@@ -1,0 +1,12 @@
+.git
+.venv
+**/.venv
+**/__pycache__
+**/.pytest_cache
+*.db
+.env
+backend/pip_fail_log.txt
+Hausa AI/
+*.pdf
+*.png
+*.jpg

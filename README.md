@@ -52,8 +52,21 @@ If you are running locally from `file://`, the app falls back to `http://127.0.0
 
 Without those keys, the scraper falls back to public search scraping.
 
+## Deploy to the web
+
+**Recommended:** one container serves the UI and API on the same domain (simplest for users).
+
+| Method | Guide |
+|--------|--------|
+| Docker + Postgres locally | `docker compose up --build` → http://localhost:8000 |
+| Fly.io (public URL) | [docs/DEPLOY.md](docs/DEPLOY.md) |
+| Railway / Render | [docs/DEPLOY.md](docs/DEPLOY.md) |
+
+Production uses **PostgreSQL** (`DATABASE_URL`) and **RSS feeds** for reliable ingest (ReliefWeb, Scholars4Dev, Opportunity Desk, and more). Optional Google CSE keys still improve discovery.
+
 ## Production notes
 
-- The frontend expects the API to be reachable from the browser.
-- The backend enables CORS for all origins, so a deployed frontend can call it from another host.
-- Keep `DATABASE_URL` configurable for production deployments.
+- Set `DATABASE_URL` to Postgres in production (see `docker-compose.yml` or Fly Postgres).
+- `ENABLE_SCHEDULER=true` on a single instance runs periodic RSS + scrape jobs.
+- `CORS_ORIGINS` defaults to `*`; restrict when the frontend is on another host.
+- Health: `GET /health` (used by Fly.io checks).
