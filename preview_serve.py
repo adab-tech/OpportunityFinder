@@ -8,7 +8,9 @@ import runpy
 import sys
 
 BACKEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "backend")
-os.environ.setdefault("API_PORT", "8010")
+# Respect whatever port the preview harness assigns via PORT (Settings.API_PORT
+# already aliases to PORT) — never hardcode a port here, so autoPort can work.
+os.environ.setdefault("API_PORT", os.environ.get("PORT", "8010"))
 os.environ.setdefault("ENABLE_SCHEDULER", "false")
 os.chdir(BACKEND_DIR)
 sys.path.insert(0, BACKEND_DIR)
