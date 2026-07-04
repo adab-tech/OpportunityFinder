@@ -49,6 +49,13 @@ RSS_FEEDS: list[FeedSpec] = [
         "location": "International",
     },
     {
+        "url": "https://www.opportunitydesk.org/category/internships/feed/",
+        "opportunity_type": "job",
+        "source_name": "Opportunity Desk",
+        "field": "International Development",
+        "location": "International",
+    },
+    {
         # Opportunity Desk's scholarships/jobs category feeds return no
         # entries, so fall back to the generic feed (mixed) for that coverage.
         "url": "https://opportunitydesk.org/feed/",
