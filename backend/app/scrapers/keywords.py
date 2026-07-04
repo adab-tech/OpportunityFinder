@@ -26,6 +26,11 @@ OPPORTUNITY_KEYWORD_TEMPLATES: dict[str, list[str]] = {
         '"scholarship" "tuition" "stipend" "{year}"',
         '"postgraduate scholarship" "deadline" "{year}"',
         '"women scholarship" "{year}" "apply"',
+        '"scholarship" "United States" "apply" "{year}"',
+        '"scholarship" "Europe" "apply" "{year}"',
+        '"scholarship" "Asia" "apply" "{year}"',
+        '"scholarship" "Latin America" "apply" "{year}"',
+        '"scholarship" "Middle East" "apply" "{year}"',
     ],
     "fellowship": [
         '"fellowship" "applications open" "{year}"',
@@ -38,6 +43,10 @@ OPPORTUNITY_KEYWORD_TEMPLATES: dict[str, list[str]] = {
         '"fellowship" "emerging leaders" "{year}"',
         '"professional fellowship" "apply" "{year}"',
         '"community fellowship" "{year}" "applications"',
+        '"fellowship" "United States" "apply" "{year}"',
+        '"fellowship" "Europe" "apply" "{year}"',
+        '"fellowship" "Asia" "apply" "{year}"',
+        '"fellowship" "Latin America" "apply" "{year}"',
     ],
     "grant": [
         '"grant" "call for proposals" "{year}"',
@@ -50,6 +59,9 @@ OPPORTUNITY_KEYWORD_TEMPLATES: dict[str, list[str]] = {
         '"project grant" "applications" "open" "{year}"',
         '"travel grant" "apply" "{year}"',
         '"arts grant" "{year}" "applications"',
+        '"grant" "United States" "apply" "{year}"',
+        '"grant" "Europe" "apply" "{year}"',
+        '"grant" "Asia" "apply" "{year}"',
     ],
     "job": [
         '"job opening" "apply now" "{year}"',
@@ -64,6 +76,9 @@ OPPORTUNITY_KEYWORD_TEMPLATES: dict[str, list[str]] = {
         '"NGO" "job" "apply" "{year}"',
         '"consultancy" "apply" "{year}"',
         '"junior position" "apply" "{year}"',
+        '"remote job" "United States" "apply" "{year}"',
+        '"job opening" "Europe" "apply" "{year}"',
+        '"job opening" "Asia" "apply" "{year}"',
     ],
 }
 

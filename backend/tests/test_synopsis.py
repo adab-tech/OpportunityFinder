@@ -53,6 +53,30 @@ class TestExtractMeaningfulSentence:
         text = "Application Deadline: 1 May 2026. Applications are now open for this program."
         assert extract_meaningful_sentence(text) is None
 
+    def test_skips_nsf_style_deadline_phrasing(self):
+        # Real NSF listing text, already run through _plain_text's <br />
+        # -> ". " conversion (see test_rss_ingest.py for the raw-HTML
+        # version of this same regression).
+        text = (
+            "Letter of Intent Deadline Date: July 9, 2026. Program Guidelines: NSF 23-598. "
+            "The Historically Black Colleges and Universities Excellence in Research program "
+            "supports research capacity building at HBCUs through targeted funding."
+        )
+        result = extract_meaningful_sentence(text)
+        assert result is not None
+        assert result.startswith("The Historically Black")
+
+    def test_does_not_split_on_us_abbreviation(self):
+        # Real NSF listing text — "U.S." was being treated as a sentence
+        # end, truncating the synopsis to a near-empty fragment.
+        text = (
+            "The National Science Foundation invites investigators at U.S. "
+            "institutions to submit proposals for Arctic research opportunities."
+        )
+        result = extract_meaningful_sentence(text)
+        assert result is not None
+        assert "U.S. institutions" in result
+
     def test_short_fragments_are_skipped(self):
         text = (
             "Apply now. Short. "

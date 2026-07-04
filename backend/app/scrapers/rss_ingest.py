@@ -17,14 +17,22 @@ from app.scrapers.url_utils import clean_url
 
 logger = logging.getLogger(__name__)
 
+_BLOCK_TAG_RE = re.compile(r"<\s*(br|/p|/div|/li)\s*/?\s*>", re.IGNORECASE)
 _TAG_RE = re.compile(r"<[^>]+>")
 
 
 def _plain_text(value: str | None, limit: int = 2000) -> str | None:
     if not value:
         return None
-    text = unescape(_TAG_RE.sub(" ", value))
+    # Convert block-level HTML boundaries into a sentence break *before*
+    # stripping tags — otherwise "Letter of Intent Deadline Date: X<br
+    # />Program Guidelines: Y<br /><p>The actual description..." collapses
+    # into one run-on sentence with no punctuation to split on, and the
+    # synopsis generator can't tell where the real content starts.
+    text = _BLOCK_TAG_RE.sub(". ", value)
+    text = unescape(_TAG_RE.sub(" ", text))
     text = re.sub(r"\s+", " ", text).strip()
+    text = re.sub(r"\.\s*\.", ".", text)  # collapse ". ." runs from adjacent boundaries
     if not text:
         return None
     return text[:limit]

@@ -119,4 +119,18 @@ RSS_FEEDS: list[FeedSpec] = [
         "field": "International Development",
         "location": "International",
     },
+    {
+        # Real, individually-linked, currently-open US federal funding
+        # opportunities — added specifically to broaden coverage beyond
+        # the Africa-focused sources above, which dominate this list
+        # because most other international candidates tested (Chevening,
+        # ProFellow, Rotary, Echoing Green, EURAXESS, USAJobs, and more)
+        # turned out to be dead, bot-blocked, or blog/PR feeds rather
+        # than actual opportunity listings.
+        "url": "https://www.nsf.gov/rss/rss_www_funding_upcoming.xml",
+        "opportunity_type": "grant",
+        "source_name": "National Science Foundation",
+        "field": "STEM",
+        "location": "USA",
+    },
 ]

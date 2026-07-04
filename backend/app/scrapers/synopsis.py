@@ -47,9 +47,18 @@ _BOILERPLATE_STARTS = (
     "apply now",
     "deadline:",
     "closing date",
+    "letter of intent",
+    "full proposal",
+    "program guidelines",
+    "target date",
+    "submission deadline",
+    "due date",
 )
 
-_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+# Negative lookbehind avoids splitting on a single-capital-letter
+# abbreviation like "U.S." or "U.K." (e.g. "investigators at U.S.
+# institutions" shouldn't be cut into two fragments at "U.S.").
+_SENTENCE_SPLIT_RE = re.compile(r"(?<![A-Z]\.)(?<=[.!?])\s+")
 _WORDPRESS_FOOTER_RE = re.compile(r"\s*the post .*? appeared first on .*?\.?\s*$", re.IGNORECASE)
 
 

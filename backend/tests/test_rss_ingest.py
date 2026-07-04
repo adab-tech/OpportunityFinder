@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 from app.database import SessionLocal
 from app.models import Opportunity
-from app.scrapers.rss_ingest import RssIngestor
+from app.scrapers.rss_ingest import RssIngestor, _plain_text
 
 
 def _fake_feed():
@@ -44,6 +44,22 @@ def test_rss_ingest_saves_new_entry():
         assert row.opportunity_type == "fellowship"
     finally:
         db.close()
+
+
+class TestPlainTextBlockBoundaries:
+    def test_br_tags_become_sentence_breaks(self):
+        # Real NSF RSS raw HTML: labels separated only by <br />, no
+        # punctuation — without converting these to breaks first, the
+        # whole thing collapses into one run-on sentence and the
+        # synopsis generator can't find where the real content starts.
+        raw = (
+            "Letter of Intent Deadline Date: July 9, 2026<br /><br />"
+            "Program Guidelines: NSF&nbsp;23-598<br /><p><p>The Historically "
+            "Black Colleges and Universities program supports research capacity."
+        )
+        result = _plain_text(raw)
+        assert "Deadline Date: July 9, 2026. Program Guidelines" in result
+        assert "NSF 23-598. The Historically" in result
 
 
 def _fake_feed_with_deadline():
