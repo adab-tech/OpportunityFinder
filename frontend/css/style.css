@@ -631,8 +631,6 @@ body {
 
 .footer strong { color: #fff; }
 .footer-note { font-size: .76rem; }
-.footer-admin-link { color: #94a3b8; text-decoration: underline; opacity: .7; }
-.footer-admin-link:hover { opacity: 1; }
 
 /* ------- Responsive tweaks ------- */
 

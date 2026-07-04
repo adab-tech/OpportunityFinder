@@ -68,6 +68,19 @@ further.
 - Backfill scripts for existing rows (same dry-run/`--apply` pattern as
   `reclassify_opportunities.py`): `scripts/backfill_deadlines.py` and
   `scripts/backfill_summary_and_deadline_at.py`.
+- **`build_synopsis` prefers real substance over restating fields already
+  shown as badges.** Type/field/location are already visible as tags, and
+  deadline is already its own countdown badge — a synopsis that just
+  reconstructs those into a sentence ("A grant in International
+  Development open to applicants in Africa worth $12,000. Deadline: 19
+  January 2018.") is redundant, and reads as generic because it *is*
+  generic. `extract_meaningful_sentence` pulls the first substantive,
+  non-boilerplate sentence from the actual scraped description instead
+  (stripping "Applications are now open for...", WordPress's "The post X
+  appeared first on Y" footer, and a leading deadline restatement). The
+  structured-fields sentence is only a fallback for when no usable
+  description text exists at all, and it never restates the deadline.
+  Regression tests: `tests/test_synopsis.py`.
 
 ## Self-hosted visitor analytics
 
@@ -83,6 +96,10 @@ counts only.
   `settings.ADMIN_API_KEY`. **Unset by default — refuses ALL requests (503)
   until you configure it.** Set it in Render's environment to actually use
   `admin.html`.
+- **`admin.html` is intentionally not linked from the public site** (no
+  footer link, no nav entry) — this is serious software, not a hobby
+  project, and a visible "Admin" link undercuts that. Reach it by typing
+  the URL directly; it's still protected by `ADMIN_API_KEY` either way.
 
 ## SEO
 
