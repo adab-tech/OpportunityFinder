@@ -26,6 +26,19 @@ a static frontend on the same origin.
 - **Frontend:** static vanilla JS in `frontend/` (no build step), served by the API
 - **DB:** SQLite locally, Postgres in production via `DATABASE_URL`
 
+## SEO
+
+- `index.html` head: OG/Twitter cards, canonical URL, JSON-LD `WebSite` schema, keyword-rich
+  meta description, inline SVG favicon (no binary asset needed). Canonical/OG URLs are
+  hardcoded to `https://adab-opportunityfinder.onrender.com/` — update them if the domain changes.
+- `frontend/robots.txt` and `frontend/sitemap.xml` are served automatically by the existing
+  static-file catch-all in `main.py` (no route changes needed) — just edit the files directly.
+- **Scraper search queries must never hardcode a year.** `app/scrapers/keywords.py`
+  templates use `{year}`, expanded to the current year *and* next year at query-build
+  time (`build_google_queries`) — a literal "2026" would silently go stale once 2027
+  arrives, since program pages label themselves by intake year. Regression test:
+  `tests/test_keyword_queries.py::test_no_hardcoded_year_leaks_into_output`.
+
 ## Saved opportunities & email alerts (no-password)
 
 Users are identified only by email — no login/password. Every management

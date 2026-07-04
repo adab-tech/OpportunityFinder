@@ -3,64 +3,74 @@ SEO-optimized keyword queries and curated seed sites for each opportunity type.
 Queries are crafted using Google search operators to surface high-quality results.
 """
 
+from datetime import UTC, datetime
 
 # ---------------------------------------------------------------------------
-# Primary Google search queries per opportunity type
+# Primary Google search query templates per opportunity type.
+# "{year}" is substituted with the current year and the next year at query
+# build time (see build_google_queries) so these never go stale — a
+# hardcoded "2026" would silently stop matching real listings once 2027
+# rolls around, since most program pages label themselves by intake year.
 # ---------------------------------------------------------------------------
-OPPORTUNITY_KEYWORDS: dict[str, list[str]] = {
+OPPORTUNITY_KEYWORD_TEMPLATES: dict[str, list[str]] = {
     "scholarship": [
-        '"scholarship" "apply now" "2026"',
-        '"fully funded scholarship" "international students" 2026',
-        '"scholarship application" "open" "deadline" 2026',
-        '"masters scholarship" "2026" "apply"',
-        '"phd scholarship" "2026" "fully funded"',
-        '"undergraduate scholarship" "2026" "apply"',
-        '"scholarship" "call for applications" "2026"',
-        '"merit scholarship" "2026" "applications open"',
-        '"government scholarship" "2026" "apply online"',
-        '"scholarship" "tuition" "stipend" "2026"',
-        '"postgraduate scholarship" "deadline" "2026"',
-        '"women scholarship" "2026" "apply"',
+        '"scholarship" "apply now" "{year}"',
+        '"fully funded scholarship" "international students" {year}',
+        '"scholarship application" "open" "deadline" {year}',
+        '"masters scholarship" "{year}" "apply"',
+        '"phd scholarship" "{year}" "fully funded"',
+        '"undergraduate scholarship" "{year}" "apply"',
+        '"scholarship" "call for applications" "{year}"',
+        '"merit scholarship" "{year}" "applications open"',
+        '"government scholarship" "{year}" "apply online"',
+        '"scholarship" "tuition" "stipend" "{year}"',
+        '"postgraduate scholarship" "deadline" "{year}"',
+        '"women scholarship" "{year}" "apply"',
     ],
     "fellowship": [
-        '"fellowship" "applications open" "2026"',
-        '"research fellowship" "call for applications" 2026',
-        '"postdoctoral fellowship" "deadline" "2026"',
-        '"fellowship program" "apply now" "2026"',
-        '"visiting fellowship" "2026" "apply"',
-        '"fellowship" "stipend" "2026" "international"',
-        '"leadership fellowship" "applications" "2026"',
-        '"fellowship" "emerging leaders" "2026"',
-        '"professional fellowship" "apply" "2026"',
-        '"community fellowship" "2026" "applications"',
+        '"fellowship" "applications open" "{year}"',
+        '"research fellowship" "call for applications" {year}',
+        '"postdoctoral fellowship" "deadline" "{year}"',
+        '"fellowship program" "apply now" "{year}"',
+        '"visiting fellowship" "{year}" "apply"',
+        '"fellowship" "stipend" "{year}" "international"',
+        '"leadership fellowship" "applications" "{year}"',
+        '"fellowship" "emerging leaders" "{year}"',
+        '"professional fellowship" "apply" "{year}"',
+        '"community fellowship" "{year}" "applications"',
     ],
     "grant": [
-        '"grant" "call for proposals" "2026"',
-        '"research grant" "applications open" 2026',
-        '"small grant" "deadline" "2026"',
-        '"innovation grant" "apply" "2026"',
-        '"community grant" "call for applications" "2026"',
-        '"seed grant" "research" "2026"',
-        '"grant funding" "proposals" "deadline" "2026"',
-        '"project grant" "applications" "open" "2026"',
-        '"travel grant" "apply" "2026"',
-        '"arts grant" "2026" "applications"',
+        '"grant" "call for proposals" "{year}"',
+        '"research grant" "applications open" {year}',
+        '"small grant" "deadline" "{year}"',
+        '"innovation grant" "apply" "{year}"',
+        '"community grant" "call for applications" "{year}"',
+        '"seed grant" "research" "{year}"',
+        '"grant funding" "proposals" "deadline" "{year}"',
+        '"project grant" "applications" "open" "{year}"',
+        '"travel grant" "apply" "{year}"',
+        '"arts grant" "{year}" "applications"',
     ],
     "job": [
-        '"job opening" "apply now" "2026"',
-        '"now hiring" "application deadline" 2026',
-        '"career opportunity" "vacancy" "2026"',
-        '"internship" "paid" "apply" "2026"',
-        '"entry level" "job" "apply" "2026"',
-        '"remote job" "hiring" "apply" "2026"',
-        '"nonprofit" "job opening" "2026"',
-        '"international organization" "vacancy" "2026"',
-        '"united nations" "vacancy" "2026"',
-        '"NGO" "job" "apply" "2026"',
-        '"consultancy" "apply" "2026"',
-        '"junior position" "apply" "2026"',
+        '"job opening" "apply now" "{year}"',
+        '"now hiring" "application deadline" {year}',
+        '"career opportunity" "vacancy" "{year}"',
+        '"internship" "paid" "apply" "{year}"',
+        '"entry level" "job" "apply" "{year}"',
+        '"remote job" "hiring" "apply" "{year}"',
+        '"nonprofit" "job opening" "{year}"',
+        '"international organization" "vacancy" "{year}"',
+        '"united nations" "vacancy" "{year}"',
+        '"NGO" "job" "apply" "{year}"',
+        '"consultancy" "apply" "{year}"',
+        '"junior position" "apply" "{year}"',
     ],
 }
+
+
+def _current_and_next_year() -> tuple[int, int]:
+    year = datetime.now(UTC).year
+    return year, year + 1
 
 # ---------------------------------------------------------------------------
 # Curated seed sites with consistent listing pages
@@ -153,8 +163,18 @@ def detect_opportunity_type(text: str, default: str = "other") -> str:
 
 
 def build_google_queries(opportunity_type: str, extra_keywords: list[str] = None) -> list[str]:
-    """Return a list of optimized Google queries for the given opportunity type."""
-    queries = list(OPPORTUNITY_KEYWORDS.get(opportunity_type, []))
+    """Return a list of optimized Google queries for the given opportunity type.
+
+    Each template is expanded for both the current year and next year, so
+    listings labelled either way (e.g. a scholarship advertised in 2026
+    for a 2027 intake) are covered without editing this file every January.
+    """
+    templates = OPPORTUNITY_KEYWORD_TEMPLATES.get(opportunity_type, [])
+    current_year, next_year = _current_and_next_year()
+
+    queries = [t.format(year=current_year) for t in templates]
+    queries += [t.format(year=next_year) for t in templates]
+
     if extra_keywords:
         for kw in extra_keywords:
             queries.append(f'"{opportunity_type}" "{kw}" "apply"')

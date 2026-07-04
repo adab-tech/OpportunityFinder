@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+
+Sitemap: https://adab-opportunityfinder.onrender.com/sitemap.xml

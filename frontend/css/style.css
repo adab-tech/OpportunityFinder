@@ -625,8 +625,41 @@ body {
 .footer-note { font-size: .76rem; }
 
 /* ------- Responsive tweaks ------- */
+
+/* Tablet: nav pills wrapped mid-row and collided with the header buttons.
+   Force the nav onto its own full-width row instead of a partial wrap. */
+@media (max-width: 980px) {
+  .top-nav {
+    order: 3;
+    flex-basis: 100%;
+    justify-content: center;
+    margin-top: 4px;
+  }
+}
+
 @media (max-width: 640px) {
   .filters { flex-direction: column; align-items: stretch; }
   .select-group { flex-direction: column; }
-  .header-inner { gap: 12px; }
+  .header-inner { gap: 10px; }
+  .brand-sub { display: none; }
+  .top-nav { justify-content: flex-start; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 2px; }
+  .nav-pill { flex-shrink: 0; }
+  .hero { padding: 44px 0 40px; }
+  .search-bar { border-radius: var(--radius); padding: 5px; }
+}
+
+@media (max-width: 420px) {
+  .search-bar { flex-direction: column; border-radius: var(--radius); padding: 10px; gap: 8px; }
+  .search-submit { border-radius: var(--radius-sm); }
+  .email-form { flex-direction: column; }
+  .modal-box { padding: 32px 22px; }
+}
+
+/* ------- Accessibility: visible focus states for keyboard navigation ------- */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
