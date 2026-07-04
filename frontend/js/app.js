@@ -241,6 +241,9 @@ function cardHTML(opp) {
   const added    = new Date(opp.scraped_at).toLocaleDateString('en-US',
     { month: 'short', day: 'numeric', year: 'numeric' });
 
+  /* Defense in depth: never render a non-http(s) URL as a link */
+  const safeUrl = /^https?:\/\//i.test(opp.url || '') ? opp.url : '#';
+
   return `
     <article class="card">
       <div class="card-accent accent-${type}"></div>
@@ -255,7 +258,7 @@ function cardHTML(opp) {
       </div>
       <div class="card-foot">
         <span class="card-date">Added ${added}</span>
-        <a href="${esc(opp.url)}" target="_blank" rel="noopener noreferrer"
+        <a href="${esc(safeUrl)}" target="_blank" rel="noopener noreferrer"
            class="btn-apply apply-${type}">Apply Now →</a>
       </div>
     </article>`;

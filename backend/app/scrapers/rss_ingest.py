@@ -3,13 +3,14 @@
 import logging
 import re
 from html import unescape
-from typing import Any, Dict
+from typing import Any
 
 import feedparser
 from sqlalchemy.orm import Session
 
 from app.ingest.rss_feeds import RSS_FEEDS
 from app.models import Opportunity
+from app.scrapers.url_utils import clean_url
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ def _plain_text(value: str | None, limit: int = 2000) -> str | None:
 class RssIngestor:
     def __init__(self, db: Session):
         self.db = db
-        self.stats: Dict[str, int] = {"feeds": 0, "entries": 0, "saved": 0, "errors": 0}
+        self.stats: dict[str, int] = {"feeds": 0, "entries": 0, "saved": 0, "errors": 0}
 
     def _url_exists(self, url: str) -> bool:
         return (
@@ -37,8 +38,8 @@ class RssIngestor:
             is not None
         )
 
-    def _save(self, data: Dict[str, Any]) -> bool:
-        url = (data.get("url") or "").strip()
+    def _save(self, data: dict[str, Any]) -> bool:
+        url = clean_url(data.get("url"))
         title = (data.get("title") or "").strip()
         if not url or not title or len(title) < 5:
             return False
@@ -67,7 +68,7 @@ class RssIngestor:
             self.stats["errors"] += 1
             return False
 
-    def _entry_from_feed(self, entry: Any, spec: Dict[str, str]) -> Dict[str, Any] | None:
+    def _entry_from_feed(self, entry: Any, spec: dict[str, str]) -> dict[str, Any] | None:
         link = (getattr(entry, "link", None) or "").strip()
         title = _plain_text(getattr(entry, "title", None), limit=500)
         if not link or not title:
@@ -89,7 +90,7 @@ class RssIngestor:
             "source_name": spec.get("source_name"),
         }
 
-    def run(self, max_entries_per_feed: int = 25) -> Dict[str, int]:
+    def run(self, max_entries_per_feed: int = 25) -> dict[str, int]:
         for spec in RSS_FEEDS:
             feed_url = spec["url"]
             try:

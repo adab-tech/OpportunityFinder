@@ -2,18 +2,18 @@
 
 import logging
 import threading
-from typing import Any, Dict, List
+from typing import Any
 
+from app.config import settings
 from app.database import SessionLocal
 from app.models import Opportunity
 from app.scrapers.opportunity_scraper import OpportunityScraper
 from app.scrapers.rss_ingest import RssIngestor
-from app.config import settings
 
 logger = logging.getLogger(__name__)
 
 # Curated, real public opportunity pages (stable listing / program hubs).
-CURATED_SEEDS: List[Dict[str, Any]] = [
+CURATED_SEEDS: list[dict[str, Any]] = [
     {
         "title": "Fulbright Foreign Student Program",
         "description": "Graduate study in the United States for international students.",
@@ -204,11 +204,11 @@ def run_background_scrape(max_results: int = 40) -> None:
 def run_startup_tasks() -> None:
     db = SessionLocal()
     try:
-        total = db.query(Opportunity).filter(Opportunity.is_active == True).count()
+        total = db.query(Opportunity).filter(Opportunity.is_active.is_(True)).count()
         if total == 0:
             seeded = seed_curated_opportunities(db)
             logger.info("Seeded %s curated opportunities.", seeded)
-            total = db.query(Opportunity).filter(Opportunity.is_active == True).count()
+            total = db.query(Opportunity).filter(Opportunity.is_active.is_(True)).count()
 
         threading.Thread(target=run_rss_ingest, daemon=True).start()
 

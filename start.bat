@@ -8,7 +8,7 @@ if not exist ".venv\Scripts\python.exe" (
 )
 
 echo Installing dependencies...
-".venv\Scripts\python.exe" -m pip install -r requirements.txt pytest -q
+".venv\Scripts\python.exe" -m pip install -r requirements.txt -q
 if not exist ".env" if exist ".env.example" copy ".env.example" ".env" >nul
 if errorlevel 1 (
   echo ERROR: pip install failed.

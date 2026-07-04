@@ -5,15 +5,17 @@ deduplicates by URL, and persists results to the database.
 """
 
 import logging
-from typing import List, Dict, Optional, Any
+from typing import Any
+
 from sqlalchemy.orm import Session
 
+from app.config import settings
+from app.models import Opportunity
 from app.scrapers.base_scraper import BaseScraper
 from app.scrapers.google_scraper import GoogleScraper
 from app.scrapers.keywords import OPPORTUNITY_SITES, build_google_queries
 from app.scrapers.rss_ingest import RssIngestor
-from app.config import settings
-from app.models import Opportunity
+from app.scrapers.url_utils import clean_url
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +37,9 @@ class OpportunityScraper:
             is not None
         )
 
-    def _save(self, data: Dict[str, Any]) -> bool:
-        """Persist one opportunity; silently skip duplicates or empty titles."""
-        url = (data.get("url") or "").strip()
+    def _save(self, data: dict[str, Any]) -> bool:
+        """Persist one opportunity; silently skip duplicates, unsafe URLs, or empty titles."""
+        url = clean_url(data.get("url"))
         title = (data.get("title") or "").strip()
         if not url or not title or len(title) < 5:
             return False
@@ -70,7 +72,7 @@ class OpportunityScraper:
     # Page parsing
     # ------------------------------------------------------------------
 
-    def _parse_page(self, url: str, opportunity_type: str) -> Optional[Dict[str, Any]]:
+    def _parse_page(self, url: str, opportunity_type: str) -> dict[str, Any] | None:
         """Fetch URL and extract opportunity metadata."""
         soup = self.base.fetch_page(url)
         if not soup:
@@ -101,7 +103,7 @@ class OpportunityScraper:
     def scrape_via_google(
         self,
         opportunity_type: str,
-        extra_keywords: Optional[List[str]] = None,
+        extra_keywords: list[str] | None = None,
         max_count: int = 20,
     ) -> int:
         """Discover URLs through Google search and scrape each one."""
@@ -161,12 +163,12 @@ class OpportunityScraper:
 
     def run(
         self,
-        opportunity_types: Optional[List[str]] = None,
-        extra_keywords: Optional[List[str]] = None,
+        opportunity_types: list[str] | None = None,
+        extra_keywords: list[str] | None = None,
         max_results: int = 50,
-    ) -> Dict:
+    ) -> dict:
         """Run the full scraping pipeline for all requested types."""
-        if opportunity_types is None:
+        if not opportunity_types:
             opportunity_types = ["scholarship", "fellowship", "grant", "job"]
 
         rss_stats = RssIngestor(self.db).run(

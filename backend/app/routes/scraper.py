@@ -1,14 +1,18 @@
 import logging
-from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
+import threading
 
-from app.database import SessionLocal, get_db
-from app.scrapers.opportunity_scraper import OpportunityScraper
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+
+from app.database import SessionLocal
 from app.schemas import ScrapeRequest, ScrapeResponse
+from app.scrapers.opportunity_scraper import OpportunityScraper
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/scraper", tags=["Scraper"])
 
-_scraping_in_progress = False
+# Non-blocking lock: acquired for the whole scrape so concurrent trigger
+# requests cannot start a second run (check-and-set is atomic).
+_scrape_lock = threading.Lock()
 
 
 @router.post("/run", response_model=ScrapeResponse)
@@ -16,13 +20,10 @@ async def trigger_scrape(
     request: ScrapeRequest,
     background_tasks: BackgroundTasks,
 ):
-    global _scraping_in_progress
-    if _scraping_in_progress:
+    if not _scrape_lock.acquire(blocking=False):
         raise HTTPException(status_code=409, detail="Scraping already in progress. Try again later.")
 
     def _run():
-        global _scraping_in_progress
-        _scraping_in_progress = True
         db = SessionLocal()
         try:
             scraper = OpportunityScraper(db)
@@ -31,12 +32,12 @@ async def trigger_scrape(
                 extra_keywords=request.extra_keywords,
                 max_results=request.max_results,
             )
-            logger.info(f"Background scrape complete: {stats}")
-        except Exception as exc:
-            logger.error(f"Background scrape error: {exc}")
+            logger.info("Background scrape complete: %s", stats)
+        except Exception:
+            logger.exception("Background scrape error")
         finally:
             db.close()
-            _scraping_in_progress = False
+            _scrape_lock.release()
 
     background_tasks.add_task(_run)
     return ScrapeResponse(
@@ -47,7 +48,8 @@ async def trigger_scrape(
 
 @router.get("/status")
 async def scrape_status():
+    in_progress = _scrape_lock.locked()
     return {
-        "scraping_in_progress": _scraping_in_progress,
-        "status": "running" if _scraping_in_progress else "idle",
+        "scraping_in_progress": in_progress,
+        "status": "running" if in_progress else "idle",
     }

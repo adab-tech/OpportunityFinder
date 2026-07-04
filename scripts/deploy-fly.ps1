@@ -13,7 +13,26 @@ $fly = Get-Command flyctl -ErrorAction SilentlyContinue
 if (-not $fly) { $fly = Get-Command fly -ErrorAction SilentlyContinue }
 if (-not $fly) { throw "Fly CLI not found. Install: winget install Fly-io.flyctl" }
 
-& $fly.Source auth whoami
+if (-not $env:FLY_API_TOKEN) {
+    $whoami = & $fly.Source auth whoami 2>&1 | Out-String
+    if ($whoami -match "Error:") {
+        Write-Host ""
+        Write-Host "Fly.io is not authenticated." -ForegroundColor Red
+        Write-Host ""
+        Write-Host "Option A — browser login (run in YOUR terminal, not the agent):"
+        Write-Host "  flyctl auth login"
+        Write-Host ""
+        Write-Host "Option B — dashboard token (no browser CLI):"
+        Write-Host "  1. https://fly.io/dashboard → Account → Access Tokens → Create"
+        Write-Host "  2. `$env:FLY_API_TOKEN = 'your-token-here'"
+        Write-Host "  3. Re-run this script"
+        Write-Host ""
+        Write-Host "Option C — use Render instead (no Fly): see docs/DEPLOY-RENDER.md"
+        exit 1
+    }
+} else {
+    Write-Host "Using FLY_API_TOKEN from environment."
+}
 
 $appExists = & $fly.Source apps list --json | ConvertFrom-Json | Where-Object { $_.Name -eq $AppName }
 if (-not $appExists) {

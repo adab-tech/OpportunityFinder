@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, Query, HTTPException
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
-from typing import Optional
 
 from app.database import get_db
 from app.models import Opportunity
@@ -14,13 +14,13 @@ router = APIRouter(prefix="/opportunities", tags=["Opportunities"])
 def list_opportunities(
     page: int = Query(1, ge=1),
     per_page: int = Query(12, ge=1, le=100),
-    opportunity_type: Optional[str] = Query(None),
-    field: Optional[str] = Query(None),
-    location: Optional[str] = Query(None),
-    search: Optional[str] = Query(None),
+    opportunity_type: str | None = Query(None),
+    field: str | None = Query(None),
+    location: str | None = Query(None),
+    search: str | None = Query(None),
     db: Session = Depends(get_db),
 ):
-    q = db.query(Opportunity).filter(Opportunity.is_active == True)
+    q = db.query(Opportunity).filter(Opportunity.is_active.is_(True))
 
     if opportunity_type:
         q = q.filter(Opportunity.opportunity_type == opportunity_type.lower())
@@ -62,21 +62,21 @@ def list_opportunities(
 
 @router.get("/stats", response_model=StatsResponse)
 def get_stats(db: Session = Depends(get_db)):
-    base = db.query(Opportunity).filter(Opportunity.is_active == True)
-    total = base.count()
-
-    def count_type(t: str) -> int:
-        return base.filter(Opportunity.opportunity_type == t).count()
-
-    last = db.query(Opportunity).order_by(Opportunity.scraped_at.desc()).first()
+    counts = dict(
+        db.query(Opportunity.opportunity_type, func.count(Opportunity.id))
+        .filter(Opportunity.is_active.is_(True))
+        .group_by(Opportunity.opportunity_type)
+        .all()
+    )
+    last_scraped = db.query(func.max(Opportunity.scraped_at)).scalar()
 
     return StatsResponse(
-        total=total,
-        scholarships=count_type("scholarship"),
-        fellowships=count_type("fellowship"),
-        grants=count_type("grant"),
-        jobs=count_type("job"),
-        last_scraped=last.scraped_at if last else None,
+        total=sum(counts.values()),
+        scholarships=counts.get("scholarship", 0),
+        fellowships=counts.get("fellowship", 0),
+        grants=counts.get("grant", 0),
+        jobs=counts.get("job", 0),
+        last_scraped=last_scraped,
     )
 
 
@@ -84,7 +84,7 @@ def get_stats(db: Session = Depends(get_db)):
 def get_opportunity(opportunity_id: int, db: Session = Depends(get_db)):
     opp = (
         db.query(Opportunity)
-        .filter(Opportunity.id == opportunity_id, Opportunity.is_active == True)
+        .filter(Opportunity.id == opportunity_id, Opportunity.is_active.is_(True))
         .first()
     )
     if not opp:

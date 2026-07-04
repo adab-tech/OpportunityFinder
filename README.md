@@ -56,11 +56,11 @@ Without those keys, the scraper falls back to public search scraping.
 
 **Recommended:** one container serves the UI and API on the same domain (simplest for users).
 
-| Method | Guide |
-|--------|--------|
-| Docker + Postgres locally | `docker compose up --build` → http://localhost:8000 |
-| Fly.io (public URL) | [docs/DEPLOY.md](docs/DEPLOY.md) |
-| Railway / Render | [docs/DEPLOY.md](docs/DEPLOY.md) |
+| Method | Guide | CLI needed? |
+|--------|--------|-------------|
+| **Render** (easiest public URL) | [docs/DEPLOY-RENDER.md](docs/DEPLOY-RENDER.md) | No — GitHub + dashboard |
+| Fly.io | [docs/DEPLOY.md](docs/DEPLOY.md) | Yes (`flyctl auth login`) |
+| Docker + Postgres locally | `docker compose up --build` → http://localhost:8000 | Docker Desktop |
 
 Production uses **PostgreSQL** (`DATABASE_URL`) and **RSS feeds** for reliable ingest (ReliefWeb, Scholars4Dev, Opportunity Desk, and more). Optional Google CSE keys still improve discovery.
 

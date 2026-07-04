@@ -3,12 +3,11 @@ SEO-optimized keyword queries and curated seed sites for each opportunity type.
 Queries are crafted using Google search operators to surface high-quality results.
 """
 
-from typing import List, Dict
 
 # ---------------------------------------------------------------------------
 # Primary Google search queries per opportunity type
 # ---------------------------------------------------------------------------
-OPPORTUNITY_KEYWORDS: Dict[str, List[str]] = {
+OPPORTUNITY_KEYWORDS: dict[str, list[str]] = {
     "scholarship": [
         '"scholarship" "apply now" "2026"',
         '"fully funded scholarship" "international students" 2026',
@@ -66,7 +65,7 @@ OPPORTUNITY_KEYWORDS: Dict[str, List[str]] = {
 # ---------------------------------------------------------------------------
 # Curated seed sites with consistent listing pages
 # ---------------------------------------------------------------------------
-OPPORTUNITY_SITES: Dict[str, List[str]] = {
+OPPORTUNITY_SITES: dict[str, list[str]] = {
     "scholarship": [
         "https://opportunitydesk.org/category/scholarships/",
         "https://www.scholars4dev.com/category/scholarships/",
@@ -97,7 +96,7 @@ OPPORTUNITY_SITES: Dict[str, List[str]] = {
 # ---------------------------------------------------------------------------
 # Field detection keyword map
 # ---------------------------------------------------------------------------
-FIELD_KEYWORDS: Dict[str, List[str]] = {
+FIELD_KEYWORDS: dict[str, list[str]] = {
     "STEM": ["science", "technology", "engineering", "mathematics", "physics",
              "chemistry", "biology", "computer", "data", "statistics"],
     "Medicine & Health": ["medicine", "health", "medical", "nursing", "pharmacy",
@@ -126,7 +125,7 @@ FIELD_KEYWORDS: Dict[str, List[str]] = {
 }
 
 
-def build_google_queries(opportunity_type: str, extra_keywords: List[str] = None) -> List[str]:
+def build_google_queries(opportunity_type: str, extra_keywords: list[str] = None) -> list[str]:
     """Return a list of optimized Google queries for the given opportunity type."""
     queries = list(OPPORTUNITY_KEYWORDS.get(opportunity_type, []))
     if extra_keywords:

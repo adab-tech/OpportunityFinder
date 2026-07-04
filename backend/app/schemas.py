@@ -1,18 +1,18 @@
-from pydantic import BaseModel
-from typing import Optional, List
 from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class OpportunityBase(BaseModel):
     title: str
-    description: Optional[str] = None
+    description: str | None = None
     opportunity_type: str
-    field: Optional[str] = None
-    location: Optional[str] = None
-    deadline: Optional[str] = None
+    field: str | None = None
+    location: str | None = None
+    deadline: str | None = None
     url: str
-    source_name: Optional[str] = None
-    tags: Optional[str] = None
+    source_name: str | None = None
+    tags: str | None = None
 
 
 class OpportunityCreate(OpportunityBase):
@@ -20,12 +20,11 @@ class OpportunityCreate(OpportunityBase):
 
 
 class OpportunityResponse(OpportunityBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     is_active: bool
     scraped_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class PaginatedOpportunities(BaseModel):
@@ -33,13 +32,15 @@ class PaginatedOpportunities(BaseModel):
     page: int
     per_page: int
     total_pages: int
-    data: List[OpportunityResponse]
+    data: list[OpportunityResponse]
 
 
 class ScrapeRequest(BaseModel):
-    opportunity_types: Optional[List[str]] = ["scholarship", "fellowship", "grant", "job"]
-    extra_keywords: Optional[List[str]] = None
-    max_results: int = 50
+    opportunity_types: list[str] | None = Field(
+        default_factory=lambda: ["scholarship", "fellowship", "grant", "job"]
+    )
+    extra_keywords: list[str] | None = None
+    max_results: int = Field(default=50, ge=1, le=200)
 
 
 class ScrapeResponse(BaseModel):
@@ -55,4 +56,4 @@ class StatsResponse(BaseModel):
     fellowships: int
     grants: int
     jobs: int
-    last_scraped: Optional[datetime] = None
+    last_scraped: datetime | None = None

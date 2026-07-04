@@ -1,6 +1,6 @@
+
 from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import List, Optional
 
 
 class Settings(BaseSettings):
@@ -21,8 +21,8 @@ class Settings(BaseSettings):
         return value
 
     # Google Custom Search API (optional)
-    GOOGLE_API_KEY: Optional[str] = None
-    GOOGLE_CSE_ID: Optional[str] = None
+    GOOGLE_API_KEY: str | None = None
+    GOOGLE_CSE_ID: str | None = None
 
     # Scraping behaviour
     SCRAPE_INTERVAL_HOURS: int = 6
@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     ENABLE_SCHEDULER: bool = True
     CORS_ORIGINS: str = "*"
 
-    def cors_origin_list(self) -> List[str]:
+    def cors_origin_list(self) -> list[str]:
         raw = (self.CORS_ORIGINS or "*").strip()
         if raw == "*":
             return ["*"]

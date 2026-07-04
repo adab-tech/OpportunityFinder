@@ -6,10 +6,9 @@ Priority order:
   3. Direct fallback                 (raw HTTP to google.com, last resort)
 """
 
-import time
-import random
 import logging
-from typing import List
+import random
+import time
 from urllib.parse import quote_plus
 
 import requests
@@ -38,7 +37,7 @@ class GoogleScraper:
     # Search strategies
     # ------------------------------------------------------------------
 
-    def _search_via_api(self, query: str, num: int) -> List[str]:
+    def _search_via_api(self, query: str, num: int) -> list[str]:
         """Google Custom Search JSON API (100 free queries/day)."""
         if not settings.GOOGLE_API_KEY or not settings.GOOGLE_CSE_ID:
             return []
@@ -60,7 +59,7 @@ class GoogleScraper:
             logger.warning(f"Google API search failed: {exc}")
             return []
 
-    def _search_via_library(self, query: str, num: int) -> List[str]:
+    def _search_via_library(self, query: str, num: int) -> list[str]:
         """Use googlesearch-python (public Google scrape, polite)."""
         try:
             from googlesearch import search
@@ -72,7 +71,7 @@ class GoogleScraper:
             logger.warning(f"googlesearch-python error: {exc}")
             return []
 
-    def _search_direct(self, query: str, num: int) -> List[str]:
+    def _search_direct(self, query: str, num: int) -> list[str]:
         """Raw HTTP fallback — parse Google SERP HTML."""
         headers = {
             "User-Agent": self.ua.random,
@@ -85,7 +84,7 @@ class GoogleScraper:
             if r.status_code != 200:
                 return []
             soup = BeautifulSoup(r.text, "lxml")
-            urls: List[str] = []
+            urls: list[str] = []
             for a in soup.select("a[href]"):
                 href = a["href"]
                 if href.startswith("/url?q="):
@@ -103,7 +102,7 @@ class GoogleScraper:
     # Public interface
     # ------------------------------------------------------------------
 
-    def search(self, query: str, num_results: int = 10) -> List[str]:
+    def search(self, query: str, num_results: int = 10) -> list[str]:
         """Return up to num_results URLs for the query, filtered for relevance."""
         # Prefer API when configured
         if settings.GOOGLE_API_KEY and settings.GOOGLE_CSE_ID:
@@ -114,7 +113,7 @@ class GoogleScraper:
         results = self._search_via_library(query, num_results)
         return self._filter(results)
 
-    def _filter(self, urls: List[str]) -> List[str]:
+    def _filter(self, urls: list[str]) -> list[str]:
         """Remove social-media, search-engine and other irrelevant URLs."""
         return [
             u for u in urls

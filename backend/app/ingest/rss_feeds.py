@@ -1,6 +1,6 @@
 """Curated RSS/Atom feeds — stable, polite data sources for production ingest."""
 
-from typing import List, TypedDict
+from typing import TypedDict
 
 
 class FeedSpec(TypedDict):
@@ -11,7 +11,7 @@ class FeedSpec(TypedDict):
     location: str
 
 
-RSS_FEEDS: List[FeedSpec] = [
+RSS_FEEDS: list[FeedSpec] = [
     {
         "url": "https://reliefweb.int/jobs/rss.xml",
         "opportunity_type": "job",

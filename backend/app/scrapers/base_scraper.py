@@ -3,11 +3,10 @@ Base HTTP scraper with user-agent rotation, robots.txt compliance,
 rate limiting, and common text-extraction helpers.
 """
 
+import logging
+import random
 import re
 import time
-import random
-import logging
-from typing import Optional, Dict
 from urllib.parse import urlparse
 from urllib.robotparser import RobotFileParser
 
@@ -25,13 +24,13 @@ class BaseScraper:
     def __init__(self):
         self.ua = UserAgent()
         self.session = requests.Session()
-        self._robot_cache: Dict[str, RobotFileParser] = {}
+        self._robot_cache: dict[str, RobotFileParser] = {}
 
     # ------------------------------------------------------------------
     # HTTP helpers
     # ------------------------------------------------------------------
 
-    def _get_headers(self) -> Dict[str, str]:
+    def _get_headers(self) -> dict[str, str]:
         return {
             "User-Agent": self.ua.random,
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -48,15 +47,20 @@ class BaseScraper:
             parsed = urlparse(url)
             robots_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
             if robots_url not in self._robot_cache:
+                # Fetch with an explicit timeout — RobotFileParser.read()
+                # uses urllib without one and can hang a scrape thread.
                 rp = RobotFileParser()
-                rp.set_url(robots_url)
-                rp.read()
+                resp = self.session.get(robots_url, timeout=settings.REQUEST_TIMEOUT)
+                if resp.status_code >= 400:
+                    rp.allow_all = True
+                else:
+                    rp.parse(resp.text.splitlines())
                 self._robot_cache[robots_url] = rp
             return self._robot_cache[robots_url].can_fetch("*", url)
         except Exception:
             return True  # allow if robots.txt is unreachable
 
-    def fetch_page(self, url: str, delay: bool = True) -> Optional[BeautifulSoup]:
+    def fetch_page(self, url: str, delay: bool = True) -> BeautifulSoup | None:
         """Fetch a URL and return a parsed BeautifulSoup tree, or None on failure."""
         if not self._can_fetch(url):
             logger.info(f"Skipping {url} — blocked by robots.txt")
@@ -74,6 +78,10 @@ class BaseScraper:
                     allow_redirects=True,
                 )
                 response.raise_for_status()
+                content_type = response.headers.get("Content-Type", "")
+                if content_type and "html" not in content_type and "xml" not in content_type:
+                    logger.info(f"Skipping {url} — non-HTML content ({content_type})")
+                    return None
                 return BeautifulSoup(response.text, "lxml")
             except requests.RequestException as exc:
                 logger.warning(f"Attempt {attempt + 1}/{settings.MAX_RETRIES} failed for {url}: {exc}")
@@ -86,7 +94,7 @@ class BaseScraper:
     # Text extraction helpers
     # ------------------------------------------------------------------
 
-    def get_page_title(self, soup: BeautifulSoup) -> Optional[str]:
+    def get_page_title(self, soup: BeautifulSoup) -> str | None:
         """Return the best title found on the page."""
         for selector in ["h1", "h2", ".entry-title", ".post-title", "title"]:
             el = soup.select_one(selector)
@@ -96,7 +104,7 @@ class BaseScraper:
                     return text[:500]
         return None
 
-    def get_page_description(self, soup: BeautifulSoup) -> Optional[str]:
+    def get_page_description(self, soup: BeautifulSoup) -> str | None:
         """Return the best description: meta > og > first paragraph."""
         # meta description
         meta = soup.find("meta", {"name": "description"})
@@ -116,7 +124,7 @@ class BaseScraper:
 
         return None
 
-    def extract_deadline(self, text: str) -> Optional[str]:
+    def extract_deadline(self, text: str) -> str | None:
         """Extract a deadline date string from raw page text."""
         if not text:
             return None
@@ -139,7 +147,7 @@ class BaseScraper:
 
         return None
 
-    def extract_field(self, text: str) -> Optional[str]:
+    def extract_field(self, text: str) -> str | None:
         """Detect the academic/professional field from text."""
         text_lower = text.lower()
         for field, keywords in FIELD_KEYWORDS.items():
@@ -147,7 +155,7 @@ class BaseScraper:
                 return field
         return None
 
-    def extract_location(self, text: str) -> Optional[str]:
+    def extract_location(self, text: str) -> str | None:
         """Extract a country or region indicator from text."""
         locations = [
             "Global", "Worldwide", "International", "Online", "Remote",
