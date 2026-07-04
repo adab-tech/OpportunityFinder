@@ -1,7 +1,24 @@
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
+import secrets
+
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database import Base
+
+
+def _generate_manage_token() -> str:
+    """URL-safe token identifying a subscriber without a password."""
+    return secrets.token_urlsafe(32)
 
 
 class Opportunity(Base):
@@ -25,3 +42,68 @@ class Opportunity(Base):
 
     def __repr__(self):
         return f"<Opportunity {self.title[:60]}>"
+
+
+class Subscriber(Base):
+    """A user identified only by email — no password. Everything the
+    subscriber can manage (saved opportunities, alert subscriptions) is
+    reached through their unique, unguessable manage_token (emailed to
+    them), never through a login form.
+    """
+
+    __tablename__ = "subscribers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(320), unique=True, nullable=False, index=True)
+    manage_token = Column(String(64), unique=True, nullable=False, default=_generate_manage_token, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    saved_opportunities = relationship(
+        "SavedOpportunity", back_populates="subscriber", cascade="all, delete-orphan"
+    )
+    alert_subscriptions = relationship(
+        "AlertSubscription", back_populates="subscriber", cascade="all, delete-orphan"
+    )
+
+    def __repr__(self):
+        return f"<Subscriber {self.email}>"
+
+
+class SavedOpportunity(Base):
+    __tablename__ = "saved_opportunities"
+    __table_args__ = (
+        UniqueConstraint("subscriber_id", "opportunity_id", name="uq_saved_subscriber_opportunity"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    subscriber_id = Column(
+        Integer, ForeignKey("subscribers.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    opportunity_id = Column(
+        Integer, ForeignKey("opportunities.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    saved_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    subscriber = relationship("Subscriber", back_populates="saved_opportunities")
+    opportunity = relationship("Opportunity")
+
+
+class AlertSubscription(Base):
+    """A saved search: notify this subscriber by email when new
+    opportunities matching these (optional) filters are ingested.
+    """
+
+    __tablename__ = "alert_subscriptions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    subscriber_id = Column(
+        Integer, ForeignKey("subscribers.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    opportunity_type = Column(String(50), nullable=True)
+    field = Column(String(200), nullable=True)
+    location = Column(String(200), nullable=True)
+    keyword = Column(String(200), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_notified_at = Column(DateTime(timezone=True), nullable=True)
+
+    subscriber = relationship("Subscriber", back_populates="alert_subscriptions")

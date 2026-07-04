@@ -37,6 +37,12 @@ const resultsMeta = $('resultsMeta');
 const searchInput = $('searchInput');
 const scrapeBtn   = $('scrapeBtn');
 const modal       = $('modal');
+const alertsBtn   = $('alertsBtn');
+const saveModal   = $('saveModal');
+const alertsModal = $('alertsModal');
+
+/* opportunity id currently targeted by the save modal */
+let _pendingSaveId = null;
 
 /* ==========================================================================
    Boot
@@ -96,6 +102,21 @@ function bindEvents() {
   scrapeBtn.addEventListener('click', triggerScrape);
   $('emptyBtn').addEventListener('click', triggerScrape);
   $('closeModal').addEventListener('click', () => { modal.style.display = 'none'; });
+
+  /* Save-opportunity modal */
+  grid.addEventListener('click', e => {
+    const btn = e.target.closest('.btn-save');
+    if (!btn) return;
+    _pendingSaveId = Number(btn.dataset.id);
+    saveModal.style.display = 'flex';
+  });
+  $('closeSaveModal').addEventListener('click', () => { saveModal.style.display = 'none'; });
+  $('saveForm').addEventListener('submit', onSaveSubmit);
+
+  /* Alerts modal */
+  alertsBtn.addEventListener('click', () => { alertsModal.style.display = 'flex'; });
+  $('closeAlertsModal').addEventListener('click', () => { alertsModal.style.display = 'none'; });
+  $('alertsForm').addEventListener('submit', onAlertSubmit);
 }
 
 function doSearch() {
@@ -215,6 +236,63 @@ async function triggerScrape() {
 }
 
 /* ==========================================================================
+   Saved opportunities & alerts (no-password: email + manage link)
+   ========================================================================== */
+async function onSaveSubmit(e) {
+  e.preventDefault();
+  const email = $('saveEmailInput').value.trim();
+  if (!email || _pendingSaveId == null) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/saved`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, opportunity_id: _pendingSaveId }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (res.ok) {
+      toast(body.message || 'Saved! Check your email for a manage link.');
+      saveModal.style.display = 'none';
+      $('saveForm').reset();
+    } else {
+      toast(body.detail || 'Could not save this opportunity.', 'error');
+    }
+  } catch (_) {
+    toast('Cannot connect to the API. Is the backend running?', 'error');
+  }
+}
+
+async function onAlertSubmit(e) {
+  e.preventDefault();
+  const email = $('alertsEmailInput').value.trim();
+  if (!email) return;
+
+  const payload = { email };
+  if (state.type)     payload.opportunity_type = state.type;
+  if (state.field)    payload.field = state.field;
+  if (state.location) payload.location = state.location;
+  if (state.search)   payload.keyword = state.search;
+
+  try {
+    const res = await fetch(`${API_BASE}/alerts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (res.ok) {
+      toast(body.message || 'Alert created! Check your email for a manage link.');
+      alertsModal.style.display = 'none';
+      $('alertsForm').reset();
+    } else {
+      toast(body.detail || 'Could not create this alert.', 'error');
+    }
+  } catch (_) {
+    toast('Cannot connect to the API. Is the backend running?', 'error');
+  }
+}
+
+/* ==========================================================================
    Rendering
    ========================================================================== */
 function renderCards(items) {
@@ -258,6 +336,7 @@ function cardHTML(opp) {
       </div>
       <div class="card-foot">
         <span class="card-date">Added ${added}</span>
+        <button class="btn-save" data-id="${opp.id}" title="Save this opportunity">☆ Save</button>
         <a href="${esc(safeUrl)}" target="_blank" rel="noopener noreferrer"
            class="btn-apply apply-${type}">Apply Now →</a>
       </div>

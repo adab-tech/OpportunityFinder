@@ -31,6 +31,9 @@
           <button class="nav-pill" data-type="job">💼 Jobs</button>
         </nav>
 
+        <button class="btn-outline" id="alertsBtn">
+          <span>🔔</span> Get Alerts
+        </button>
         <button class="btn-find" id="scrapeBtn">
           <span>🔍</span> Find New
         </button>
@@ -165,6 +168,34 @@
       <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
       <p class="modal-note">New results will appear automatically as they are found.</p>
       <button class="btn-outline" id="closeModal">Close &amp; Continue in Background</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════ SAVE OPPORTUNITY MODAL ═════════════ -->
+  <div id="saveModal" class="modal-overlay" style="display:none">
+    <div class="modal-box">
+      <div class="modal-icon">💾</div>
+      <h3>Save This Opportunity</h3>
+      <p>Enter your email — no password needed. We'll send you a link to view and manage everything you've saved.</p>
+      <form id="saveForm" class="email-form">
+        <input type="email" id="saveEmailInput" class="email-input" placeholder="you@example.com" required />
+        <button type="submit" class="btn-primary">Save It</button>
+      </form>
+      <button class="btn-outline" id="closeSaveModal">Cancel</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════ ALERTS SIGNUP MODAL ════════════════ -->
+  <div id="alertsModal" class="modal-overlay" style="display:none">
+    <div class="modal-box">
+      <div class="modal-icon">🔔</div>
+      <h3>Get Weekly Alerts</h3>
+      <p>No password, no spam — just a weekly email when new opportunities match your filters. Uses your current search/filter selections.</p>
+      <form id="alertsForm" class="email-form">
+        <input type="email" id="alertsEmailInput" class="email-input" placeholder="you@example.com" required />
+        <button type="submit" class="btn-primary">Create Alert</button>
+      </form>
+      <button class="btn-outline" id="closeAlertsModal">Cancel</button>
     </div>
   </div>
 

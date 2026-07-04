@@ -406,9 +406,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   padding: 11px 20px;
   background: var(--bg);
   border-top: 1px solid var(--border);
+  flex-wrap: wrap;
 }
 
 .card-date { font-size: .72rem; color: var(--muted); }
@@ -428,6 +430,22 @@ body {
 }
 
 .btn-apply:hover { filter: brightness(1.12); }
+
+.btn-save {
+  display: inline-block;
+  padding: 7px 14px;
+  border-radius: 20px;
+  font-size: .78rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--muted);
+  background: transparent;
+  border: 1.5px solid var(--border);
+  cursor: pointer;
+  transition: all var(--ease);
+}
+
+.btn-save:hover { border-color: var(--primary); color: var(--primary); }
 
 .apply-scholarship { background: var(--scholarship); }
 .apply-fellowship  { background: var(--fellowship);  }
@@ -520,6 +538,24 @@ body {
 .modal-icon { font-size: 2.8rem; margin-bottom: 14px; }
 .modal-box h3 { font-size: 1.3rem; margin-bottom: 10px; }
 .modal-box p { color: var(--muted); margin-bottom: 22px; font-size: .9rem; }
+
+.email-form {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.email-input {
+  flex: 1;
+  padding: 11px 14px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: .9rem;
+  color: var(--text);
+}
+
+.email-input:focus { outline: none; border-color: var(--primary); }
 
 .progress-track {
   background: var(--border);

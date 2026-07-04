@@ -20,8 +20,37 @@ a static frontend on the same origin.
     `url_utils.clean_url`, `deadline_utils.extract_deadline` (shared by scraper + RSS paths — see invariant below)
   - `ingest/rss_feeds.py` — curated feed list (preferred production data source)
   - `bootstrap.py` — curated seeds + first-run background ingest
+  - `services/subscribers.py` — saved opportunities + email alerts (no-password: email + manage_token)
+  - `services/email_sender.py` — pluggable email delivery (see below)
+  - `routes/subscribers.py` — `/api/v1/saved`, `/api/v1/alerts` endpoints
 - **Frontend:** static vanilla JS in `frontend/` (no build step), served by the API
 - **DB:** SQLite locally, Postgres in production via `DATABASE_URL`
+
+## Saved opportunities & email alerts (no-password)
+
+Users are identified only by email — no login/password. Every management
+action (viewing saved items, deleting an alert) goes through an unguessable
+`manage_token` on the `Subscriber` row, emailed to them after signup.
+
+- **Email delivery is pluggable** (`app/services/email_sender.py`):
+  `ConsoleEmailSender` (default) just logs the email — the whole feature
+  works end-to-end with zero setup, readable in server logs. Set
+  `RESEND_API_KEY` to switch to real delivery via Resend, no code changes.
+- **`PUBLIC_BASE_URL`** builds the manage link in emails. Left `None` by
+  default so it's derived from the actual `API_PORT` in local dev
+  (`Settings.public_base_url()`) — always set it explicitly in production
+  (e.g. your Render URL), otherwise manage links will point at localhost.
+- **Weekly digest**: `scheduler.py` runs `run_alert_digest()` on
+  `ALERT_DIGEST_INTERVAL_HOURS` (default 168h/weekly) — matches each
+  `AlertSubscription`'s filters against opportunities ingested since
+  `last_notified_at`.
+- When testing this in a browser (preview tools, manual QA): **browser
+  autofill can silently substitute a real saved email into an email input**
+  even when you set the value programmatically — verify the actual
+  submitted email server-side (check logs/DB), don't trust that the field
+  you filled is what got submitted. Don't add `autocomplete="off"` to fix
+  this — autofill is a genuine convenience for this exact "just enter your
+  email" flow; the fix is to test more carefully, not to degrade real UX.
 
 ## Daily commands (Windows, from repo root)
 

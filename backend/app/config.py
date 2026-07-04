@@ -38,11 +38,24 @@ class Settings(BaseSettings):
     ENABLE_SCHEDULER: bool = True
     CORS_ORIGINS: str = "*"
 
+    # Email alerts — RESEND_API_KEY unset means emails are logged, not
+    # actually sent (see app/services/email_sender.py). PUBLIC_BASE_URL
+    # is used to build the manage-your-alerts link in outgoing emails.
+    # Left unset by default so it always reflects the actual API_PORT in
+    # local dev; set it explicitly in production (e.g. your Render URL).
+    RESEND_API_KEY: str | None = None
+    ALERT_FROM_EMAIL: str = "OpportunityFinder <alerts@opportunityfinder.dev>"
+    PUBLIC_BASE_URL: str | None = None
+    ALERT_DIGEST_INTERVAL_HOURS: int = 168  # weekly
+
     def cors_origin_list(self) -> list[str]:
         raw = (self.CORS_ORIGINS or "*").strip()
         if raw == "*":
             return ["*"]
         return [o.strip() for o in raw.split(",") if o.strip()]
+
+    def public_base_url(self) -> str:
+        return self.PUBLIC_BASE_URL or f"http://127.0.0.1:{self.API_PORT}"
 
 
 settings = Settings()

@@ -6,6 +6,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from app.config import settings
 from app.database import SessionLocal
 from app.scrapers.opportunity_scraper import OpportunityScraper
+from app.services.subscribers import run_alert_digest
 
 logger = logging.getLogger(__name__)
 _scheduler = BackgroundScheduler()
@@ -24,6 +25,17 @@ def _scheduled_task():
         db.close()
 
 
+def _scheduled_alert_digest():
+    logger.info("Scheduled alert digest triggered.")
+    db = SessionLocal()
+    try:
+        run_alert_digest(db)
+    except Exception:
+        logger.exception("Scheduled alert digest error")
+    finally:
+        db.close()
+
+
 def start_scheduler():
     _scheduler.add_job(
         _scheduled_task,
@@ -32,8 +44,18 @@ def start_scheduler():
         replace_existing=True,
         misfire_grace_time=3600,
     )
+    _scheduler.add_job(
+        _scheduled_alert_digest,
+        trigger=IntervalTrigger(hours=settings.ALERT_DIGEST_INTERVAL_HOURS),
+        id="alert_digest",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
     _scheduler.start()
-    logger.info(f"Scheduler running — scraping every {settings.SCRAPE_INTERVAL_HOURS}h.")
+    logger.info(
+        f"Scheduler running — scraping every {settings.SCRAPE_INTERVAL_HOURS}h, "
+        f"alert digest every {settings.ALERT_DIGEST_INTERVAL_HOURS}h."
+    )
 
 
 def shutdown_scheduler():

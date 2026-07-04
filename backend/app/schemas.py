@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class OpportunityBase(BaseModel):
@@ -57,3 +57,33 @@ class StatsResponse(BaseModel):
     grants: int
     jobs: int
     last_scraped: datetime | None = None
+
+
+class SaveOpportunityRequest(BaseModel):
+    email: EmailStr
+    opportunity_id: int
+
+
+class SavedOpportunityActionResponse(BaseModel):
+    status: str
+    message: str
+
+
+class AlertCreateRequest(BaseModel):
+    email: EmailStr
+    opportunity_type: str | None = None
+    field: str | None = None
+    location: str | None = None
+    keyword: str | None = Field(default=None, max_length=200)
+
+
+class AlertResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    opportunity_type: str | None = None
+    field: str | None = None
+    location: str | None = None
+    keyword: str | None = None
+    created_at: datetime
+    last_notified_at: datetime | None = None
