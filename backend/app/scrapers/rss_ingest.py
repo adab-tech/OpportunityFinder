@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.ingest.rss_feeds import RSS_FEEDS
 from app.models import Opportunity
+from app.scrapers.deadline_utils import extract_deadline
 from app.scrapers.keywords import detect_opportunity_type
 from app.scrapers.url_utils import clean_url
 
@@ -55,6 +56,7 @@ class RssIngestor:
                     opportunity_type=data.get("opportunity_type", "other"),
                     field=data.get("field"),
                     location=data.get("location"),
+                    deadline=data.get("deadline"),
                     url=url[:2000],
                     source_name=data.get("source_name"),
                     is_active=True,
@@ -85,12 +87,16 @@ class RssIngestor:
         if opportunity_type == "mixed":
             opportunity_type = detect_opportunity_type(title)
 
+        plain_summary = _plain_text(summary)
+        deadline = extract_deadline(f"{title} {plain_summary or ''}")
+
         return {
             "title": title,
-            "description": _plain_text(summary),
+            "description": plain_summary,
             "opportunity_type": opportunity_type,
             "field": spec.get("field"),
             "location": spec.get("location"),
+            "deadline": deadline,
             "url": link,
             "source_name": spec.get("source_name"),
         }

@@ -46,6 +46,45 @@ def test_rss_ingest_saves_new_entry():
         db.close()
 
 
+def _fake_feed_with_deadline():
+    return SimpleNamespace(
+        bozo=False,
+        entries=[
+            SimpleNamespace(
+                title="Test Scholarship 2026",
+                link="https://example.org/scholarship-with-deadline",
+                summary="Application Deadline: September 23rd, 2026. Apply now for this program.",
+            )
+        ],
+    )
+
+
+def test_rss_ingest_extracts_deadline_from_summary():
+    db = SessionLocal()
+    try:
+        url = "https://example.org/scholarship-with-deadline"
+        db.query(Opportunity).filter(Opportunity.url == url).delete()
+        db.commit()
+
+        with patch("app.scrapers.rss_ingest.feedparser.parse", return_value=_fake_feed_with_deadline()):
+            with patch("app.scrapers.rss_ingest.RSS_FEEDS", [
+                {
+                    "url": "https://example.org/feed.xml",
+                    "opportunity_type": "scholarship",
+                    "source_name": "Example",
+                    "field": "STEM",
+                    "location": "International",
+                }
+            ]):
+                RssIngestor(db).run(max_entries_per_feed=5)
+
+        row = db.query(Opportunity).filter(Opportunity.url == url).first()
+        assert row is not None
+        assert row.deadline == "September 23rd, 2026"
+    finally:
+        db.close()
+
+
 def _fake_mixed_feed():
     return SimpleNamespace(
         bozo=False,

@@ -5,7 +5,6 @@ rate limiting, and common text-extraction helpers.
 
 import logging
 import random
-import re
 import time
 from urllib.parse import urlparse
 from urllib.robotparser import RobotFileParser
@@ -15,6 +14,7 @@ from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
 
 from app.config import settings
+from app.scrapers.deadline_utils import extract_deadline
 from app.scrapers.keywords import FIELD_KEYWORDS
 
 logger = logging.getLogger(__name__)
@@ -126,26 +126,7 @@ class BaseScraper:
 
     def extract_deadline(self, text: str) -> str | None:
         """Extract a deadline date string from raw page text."""
-        if not text:
-            return None
-
-        patterns = [
-            r'deadline[:\s]+([A-Za-z]+ \d{1,2},?\s+\d{4})',
-            r'apply\s+by[:\s]+([A-Za-z]+ \d{1,2},?\s+\d{4})',
-            r'closing\s+date[:\s]+([A-Za-z]+ \d{1,2},?\s+\d{4})',
-            r'applications?\s+(?:due|close)[:\s]+([A-Za-z]+ \d{1,2},?\s+\d{4})',
-            r'submission\s+deadline[:\s]+([A-Za-z]+ \d{1,2},?\s+\d{4})',
-            r'due\s+date[:\s]+([A-Za-z]+ \d{1,2},?\s+\d{4})',
-            r'(\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4})',
-            r'(\d{4}-\d{2}-\d{2})',
-            r'(\d{1,2}/\d{1,2}/\d{4})',
-        ]
-        for pattern in patterns:
-            match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                return match.group(1).strip()[:100]
-
-        return None
+        return extract_deadline(text)
 
     def extract_field(self, text: str) -> str | None:
         """Detect the academic/professional field from text."""

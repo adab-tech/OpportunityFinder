@@ -16,7 +16,8 @@ a static frontend on the same origin.
 - **Backend:** FastAPI + SQLAlchemy 2 + APScheduler in `backend/app/`
   - `main.py` — app factory, CORS, health, static-file catch-all
   - `routes/` — opportunities API + scraper trigger
-  - `scrapers/` — BaseScraper (polite HTTP), GoogleScraper, OpportunityScraper orchestrator, RSS ingest, `url_utils.clean_url`
+  - `scrapers/` — BaseScraper (polite HTTP), GoogleScraper, OpportunityScraper orchestrator, RSS ingest,
+    `url_utils.clean_url`, `deadline_utils.extract_deadline` (shared by scraper + RSS paths — see invariant below)
   - `ingest/rss_feeds.py` — curated feed list (preferred production data source)
   - `bootstrap.py` — curated seeds + first-run background ingest
 - **Frontend:** static vanilla JS in `frontend/` (no build step), served by the API
@@ -62,7 +63,15 @@ Dev deps live in `backend/requirements-dev.txt` (pytest, ruff). Prod deps in
    (fixed 2026-07-04) — see `backend/scripts/reclassify_opportunities.py` for
    the one-time repair tool and rerun it (dry-run first!) if a similar
    misconfiguration is ever suspected again.
-5. **CORS** — wildcard origins must keep `allow_credentials=False` (see `main.py`).
+6. **Deadline extraction must run on every ingest path.** `extract_deadline`
+   (in `deadline_utils.py`) is called from both `base_scraper.py` (scraper
+   pipeline) and `rss_ingest.py` (RSS pipeline). It was missing from RSS
+   entirely until 2026-07-04, silently leaving `deadline: null` on the
+   majority of production data despite descriptions clearly stating one.
+   If you add a new ingest path, it must call `extract_deadline` too.
+   See `backend/scripts/backfill_deadlines.py` to repair existing null
+   deadlines (dry-run first).
+7. **CORS** — wildcard origins must keep `allow_credentials=False` (see `main.py`).
 
 ## Testing rules
 
