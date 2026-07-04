@@ -47,4 +47,14 @@ RSS_FEEDS: list[FeedSpec] = [
         "field": "International Development",
         "location": "Africa",
     },
+    {
+        # This feed bundles scholarships, fellowships, grants, and jobs
+        # together — "mixed" tells the ingestor to classify each entry
+        # individually by title keywords (see keywords.detect_opportunity_type).
+        "url": "https://opportunitiesforyouth.org/feed/",
+        "opportunity_type": "mixed",
+        "source_name": "Opportunities For Youth",
+        "field": "International Development",
+        "location": "International",
+    },
 ]

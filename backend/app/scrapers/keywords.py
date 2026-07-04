@@ -124,6 +124,33 @@ FIELD_KEYWORDS: dict[str, list[str]] = {
                                   "NGO", "nonprofit", "aid", "governance"],
 }
 
+# ---------------------------------------------------------------------------
+# Opportunity-type detection keywords — used to classify entries from
+# "mixed" feeds that bundle scholarships, fellowships, grants, and jobs
+# together under one RSS stream (e.g. opportunitiesforyouth.org).
+# Order matters: checked top-to-bottom, first match wins.
+# ---------------------------------------------------------------------------
+TYPE_KEYWORDS: dict[str, list[str]] = {
+    "scholarship": ["scholarship", "scholarships"],
+    "fellowship": ["fellowship", "fellowships", "fellow program",
+                   "award", "awards", "prize", "prizes"],
+    "grant": ["grant", "grants", "funding opportunity", "call for proposals"],
+    # Generic role words (e.g. "officer", "career") are deliberately excluded —
+    # they also appear in fellowship/award and grant titles and caused
+    # false positives (a research award was mislabeled as a job).
+    "job": ["job", "jobs", "vacancy", "vacancies", "hiring", "internship",
+            "recruitment", "position available", "now hiring"],
+}
+
+
+def detect_opportunity_type(text: str, default: str = "other") -> str:
+    """Classify free text (usually a title) into an opportunity type."""
+    text_lower = text.lower()
+    for opp_type, kws in TYPE_KEYWORDS.items():
+        if any(kw in text_lower for kw in kws):
+            return opp_type
+    return default
+
 
 def build_google_queries(opportunity_type: str, extra_keywords: list[str] = None) -> list[str]:
     """Return a list of optimized Google queries for the given opportunity type."""

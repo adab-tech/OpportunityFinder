@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.ingest.rss_feeds import RSS_FEEDS
 from app.models import Opportunity
+from app.scrapers.keywords import detect_opportunity_type
 from app.scrapers.url_utils import clean_url
 
 logger = logging.getLogger(__name__)
@@ -80,10 +81,14 @@ class RssIngestor:
             or ""
         )
 
+        opportunity_type = spec["opportunity_type"]
+        if opportunity_type == "mixed":
+            opportunity_type = detect_opportunity_type(title)
+
         return {
             "title": title,
             "description": _plain_text(summary),
-            "opportunity_type": spec["opportunity_type"],
+            "opportunity_type": opportunity_type,
             "field": spec.get("field"),
             "location": spec.get("location"),
             "url": link,
