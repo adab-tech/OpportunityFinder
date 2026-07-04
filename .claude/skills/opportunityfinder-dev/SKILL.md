@@ -47,11 +47,21 @@ Dev deps live in `backend/requirements-dev.txt` (pytest, ruff). Prod deps in
 2. **URL sanitisation** — every ingest path (scraper `_save`, RSS `_save`) must go
    through `app/scrapers/url_utils.clean_url` (http/https only). This blocks stored-XSS
    via `javascript:` links. Frontend `cardHTML` also guards `safeUrl`.
-3. **Personal documents** — repo root holds untracked personal PDFs/images.
-   `.gitignore` excludes them. NEVER `git add -A` or force-add; verify with
-   `git status` before any commit. History is confirmed clean as of 2026-07-04.
+3. **Personal documents** — were moved out of the repo root on 2026-07-04 to
+   `C:\Users\Adamu\Documents\OpportunityFinder-Personal-Docs-Removed` (never
+   tracked by git; history confirmed clean). Never save personal files into
+   this repo folder again — it's meant to be pure project code.
 4. **Scrape lock** — `routes/scraper.py` uses a non-blocking `threading.Lock`;
    keep check-and-set atomic.
+5. **Feed type correctness** — a multi-category source (scholarships +
+   fellowships + grants + jobs all on one site) must NEVER get one hardcoded
+   `opportunity_type` in `app/ingest/rss_feeds.py`. Use per-category feed URLs
+   when the site publishes them (guaranteed-correct type), or `"mixed"` to
+   trigger per-entry classification via `keywords.detect_opportunity_type`.
+   This exact bug mislabeled real opportunities in production once already
+   (fixed 2026-07-04) — see `backend/scripts/reclassify_opportunities.py` for
+   the one-time repair tool and rerun it (dry-run first!) if a similar
+   misconfiguration is ever suspected again.
 5. **CORS** — wildcard origins must keep `allow_credentials=False` (see `main.py`).
 
 ## Testing rules
