@@ -45,12 +45,44 @@ const alertsModal = $('alertsModal');
 let _pendingSaveId = null;
 
 /* ==========================================================================
+   Analytics — self-hosted, no third-party tracker, no cookies.
+   A random id lives in localStorage purely to tell "a repeat browser"
+   from "a new one" apart in aggregate counts; it never identifies a
+   person and nothing here is sold or shared. See app/services/analytics.py.
+   ========================================================================== */
+function getClientId() {
+  const KEY = 'of_client_id';
+  let id = localStorage.getItem(KEY);
+  if (!id) {
+    id = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
+    localStorage.setItem(KEY, id);
+  }
+  return id;
+}
+
+function trackEvent(eventType, value, opportunityId) {
+  const payload = { event_type: eventType, client_id: getClientId() };
+  if (value !== undefined && value !== null && value !== '') payload.value = String(value).slice(0, 200);
+  if (opportunityId !== undefined) payload.opportunity_id = opportunityId;
+
+  try {
+    const body = JSON.stringify(payload);
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(`${API_BASE}/analytics/event`, new Blob([body], { type: 'application/json' }));
+    } else {
+      fetch(`${API_BASE}/analytics/event`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {});
+    }
+  } catch (_) { /* analytics must never break the real UX */ }
+}
+
+/* ==========================================================================
    Boot
    ========================================================================== */
 document.addEventListener('DOMContentLoaded', () => {
   fetchStats();
   fetchOpportunities();
   bindEvents();
+  trackEvent('pageview', window.location.pathname);
 });
 
 /* ==========================================================================
@@ -68,6 +100,7 @@ function bindEvents() {
       btn.classList.add('active');
       state.type = btn.dataset.type;
       state.page = 1;
+      if (state.type) trackEvent('filter_type', state.type);
       syncTypePills(state.type);
       fetchOpportunities();
     });
@@ -80,6 +113,7 @@ function bindEvents() {
       btn.classList.add('active');
       state.type = btn.dataset.value;
       state.page = 1;
+      if (state.type) trackEvent('filter_type', state.type);
       syncNavPills(state.type);
       fetchOpportunities();
     });
@@ -89,12 +123,14 @@ function bindEvents() {
   $('fieldFilter').addEventListener('change', e => {
     state.field = e.target.value;
     state.page = 1;
+    if (state.field) trackEvent('filter_field', state.field);
     fetchOpportunities();
   });
 
   $('locationFilter').addEventListener('change', e => {
     state.location = e.target.value;
     state.page = 1;
+    if (state.location) trackEvent('filter_location', state.location);
     fetchOpportunities();
   });
 
@@ -103,12 +139,19 @@ function bindEvents() {
   $('emptyBtn').addEventListener('click', triggerScrape);
   $('closeModal').addEventListener('click', () => { modal.style.display = 'none'; });
 
-  /* Save-opportunity modal */
+  /* Save-opportunity modal, and apply-click tracking */
   grid.addEventListener('click', e => {
-    const btn = e.target.closest('.btn-save');
-    if (!btn) return;
-    _pendingSaveId = Number(btn.dataset.id);
-    saveModal.style.display = 'flex';
+    const saveBtn = e.target.closest('.btn-save');
+    if (saveBtn) {
+      _pendingSaveId = Number(saveBtn.dataset.id);
+      trackEvent('save_click', null, _pendingSaveId);
+      saveModal.style.display = 'flex';
+      return;
+    }
+    const applyLink = e.target.closest('.btn-apply');
+    if (applyLink) {
+      trackEvent('apply_click', null, Number(applyLink.dataset.id));
+    }
   });
   $('closeSaveModal').addEventListener('click', () => { saveModal.style.display = 'none'; });
   $('saveForm').addEventListener('submit', onSaveSubmit);
@@ -122,6 +165,7 @@ function bindEvents() {
 function doSearch() {
   state.search = searchInput.value.trim();
   state.page   = 1;
+  if (state.search) trackEvent('search', state.search);
   fetchOpportunities();
 }
 
@@ -281,6 +325,7 @@ async function onAlertSubmit(e) {
     });
     const body = await res.json().catch(() => ({}));
     if (res.ok) {
+      trackEvent('alert_create');
       toast(body.message || 'Alert created! Check your email for a manage link.');
       alertsModal.style.display = 'none';
       $('alertsForm').reset();
@@ -305,17 +350,40 @@ function renderCards(items) {
   grid.innerHTML = items.map(cardHTML).join('');
 }
 
+/* Build a deadline badge that tells people the actual urgency instead of
+   leaving them to read a date and do the math themselves. */
+function deadlineBadge(opp) {
+  if (opp.deadline_at) {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const due = new Date(opp.deadline_at + 'T00:00:00');
+    const daysLeft = Math.round((due - today) / 86400000);
+
+    if (daysLeft < 0)  return { text: 'Deadline passed', cls: 'tag-deadline-passed' };
+    if (daysLeft === 0) return { text: 'Deadline is today', cls: 'tag-deadline-urgent' };
+    if (daysLeft === 1) return { text: '1 day left', cls: 'tag-deadline-urgent' };
+    if (daysLeft <= 7)  return { text: `${daysLeft} days left`, cls: 'tag-deadline-urgent' };
+    if (daysLeft <= 30) return { text: `${daysLeft} days left`, cls: 'tag-deadline-soon' };
+    return { text: `Deadline ${opp.deadline || due.toLocaleDateString()}`, cls: 'tag-deadline' };
+  }
+  if (opp.deadline === 'Rolling') return { text: 'Rolling deadline', cls: 'tag-deadline-rolling' };
+  if (opp.deadline) return { text: opp.deadline, cls: 'tag-deadline' };
+  return { text: 'Check listing for deadline', cls: 'tag-deadline-unknown' };
+}
+
 function cardHTML(opp) {
   const type   = opp.opportunity_type || 'other';
   const labels = { scholarship: '🎓 Scholarship', fellowship: '🔬 Fellowship',
                    grant: '💰 Grant', job: '💼 Job', other: '📌 Other' };
 
-  const deadline = opp.deadline
-    ? `<span class="tag tag-deadline">⏰ ${esc(opp.deadline)}</span>` : '';
+  const dl       = deadlineBadge(opp);
+  const deadline = `<span class="tag ${dl.cls}">⏰ ${esc(dl.text)}</span>`;
   const field    = opp.field    ? `<span class="tag">📚 ${esc(opp.field)}</span>`    : '';
   const location = opp.location ? `<span class="tag">📍 ${esc(opp.location)}</span>` : '';
-  const desc     = opp.description
-    ? `<p class="card-desc">${esc(opp.description.slice(0, 220))}</p>` : '';
+  /* Prefer our own original synopsis over the raw scraped description,
+     so people get a plain-English idea of the opportunity at a glance. */
+  const bodyText = opp.summary || opp.description;
+  const desc     = bodyText
+    ? `<p class="card-desc">${esc(bodyText.slice(0, 240))}</p>` : '';
   const added    = new Date(opp.scraped_at).toLocaleDateString('en-US',
     { month: 'short', day: 'numeric', year: 'numeric' });
 
@@ -337,7 +405,7 @@ function cardHTML(opp) {
       <div class="card-foot">
         <span class="card-date">Added ${added}</span>
         <button class="btn-save" data-id="${opp.id}" title="Save this opportunity">☆ Save</button>
-        <a href="${esc(safeUrl)}" target="_blank" rel="noopener noreferrer"
+        <a href="${esc(safeUrl)}" target="_blank" rel="noopener noreferrer" data-id="${opp.id}"
            class="btn-apply apply-${type}">Apply Now →</a>
       </div>
     </article>`;

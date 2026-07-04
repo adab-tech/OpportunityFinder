@@ -7,6 +7,9 @@ use it without instantiating a scraper.
 """
 
 import re
+from datetime import date
+
+from dateutil import parser as _dateutil_parser
 
 # Ordinal suffixes ("23rd", "1st", "2nd", "3rd", "4th"...) are common in
 # real listings ("Application Deadline: September 23rd, 2026") and were
@@ -66,3 +69,26 @@ def extract_deadline(text: str) -> str | None:
             return "Rolling"
 
     return None
+
+
+_ORDINAL_SUFFIX_RE = re.compile(r"(\d+)(st|nd|rd|th)\b", re.IGNORECASE)
+
+
+def parse_deadline_date(raw_deadline: str | None) -> date | None:
+    """Parse the free-text deadline string extracted above into a real
+    date, so the frontend can show "12 days left" instead of making
+    people work out urgency from a sentence themselves.
+
+    Returns None for "Rolling" and anything dateutil can't confidently
+    parse — callers should treat that as "no computable deadline",
+    not as an error.
+    """
+    if not raw_deadline or raw_deadline == "Rolling":
+        return None
+
+    cleaned = _ORDINAL_SUFFIX_RE.sub(r"\1", raw_deadline)
+    try:
+        parsed = _dateutil_parser.parse(cleaned, fuzzy=False, dayfirst=False)
+    except (ValueError, OverflowError, TypeError):
+        return None
+    return parsed.date()

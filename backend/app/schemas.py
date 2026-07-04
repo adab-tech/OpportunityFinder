@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -6,10 +6,12 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 class OpportunityBase(BaseModel):
     title: str
     description: str | None = None
+    summary: str | None = None
     opportunity_type: str
     field: str | None = None
     location: str | None = None
     deadline: str | None = None
+    deadline_at: date | None = None
     url: str
     source_name: str | None = None
     tags: str | None = None
@@ -87,3 +89,10 @@ class AlertResponse(BaseModel):
     keyword: str | None = None
     created_at: datetime
     last_notified_at: datetime | None = None
+
+
+class AnalyticsEventRequest(BaseModel):
+    event_type: str
+    client_id: str = Field(min_length=1, max_length=64)
+    value: str | None = Field(default=None, max_length=200)
+    opportunity_id: int | None = None

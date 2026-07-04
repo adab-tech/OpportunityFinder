@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     PUBLIC_BASE_URL: str | None = None
     ALERT_DIGEST_INTERVAL_HOURS: int = 168  # weekly
 
+    # Self-hosted analytics — the summary endpoint requires this key
+    # (header X-Admin-Key) so visitor stats are never publicly readable.
+    # Unset by default: the endpoint refuses all requests until you set it.
+    ADMIN_API_KEY: str | None = None
+
     def cors_origin_list(self) -> list[str]:
         raw = (self.CORS_ORIGINS or "*").strip()
         if raw == "*":

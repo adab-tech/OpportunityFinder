@@ -3,6 +3,7 @@ import secrets
 from sqlalchemy import (
     Boolean,
     Column,
+    Date,
     DateTime,
     ForeignKey,
     Integer,
@@ -27,12 +28,21 @@ class Opportunity(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(500), nullable=False)
     description = Column(Text)
+    # Original one-line synopsis we generate — the primary text shown on
+    # cards, so people aren't just reading copy-pasted third-party text.
+    # See app/scrapers/synopsis.py.
+    summary = Column(String(300))
     # scholarship | fellowship | grant | job | other
     opportunity_type = Column(String(50), nullable=False, index=True)
     # STEM, Medicine, Arts, etc.
     field = Column(String(200), index=True)
     location = Column(String(200))
     deadline = Column(String(100))
+    # Parsed from `deadline` when possible (see deadline_utils.parse_deadline_date)
+    # so the frontend can show a day countdown instead of making people
+    # read and calculate it themselves. Null when the deadline is "Rolling"
+    # or couldn't be confidently parsed.
+    deadline_at = Column(Date, nullable=True, index=True)
     url = Column(String(2000), unique=True, nullable=False)
     source_name = Column(String(200))
     tags = Column(String(500))           # comma-separated
@@ -107,3 +117,23 @@ class AlertSubscription(Base):
     last_notified_at = Column(DateTime(timezone=True), nullable=True)
 
     subscriber = relationship("Subscriber", back_populates="alert_subscriptions")
+
+
+class AnalyticsEvent(Base):
+    """Minimal, self-hosted visitor analytics — no third-party tracker,
+    no cookies, no PII. `client_id` is a random UUID the frontend
+    generates and stores in localStorage purely to distinguish repeat
+    visitors from new ones in aggregate counts; it identifies a browser,
+    never a person.
+    """
+
+    __tablename__ = "analytics_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    # pageview | search | filter_type | filter_field | filter_location |
+    # apply_click | save_click | alert_create
+    event_type = Column(String(50), nullable=False, index=True)
+    client_id = Column(String(64), nullable=False, index=True)
+    value = Column(String(200), nullable=True)  # search term, filter value, etc.
+    opportunity_id = Column(Integer, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)

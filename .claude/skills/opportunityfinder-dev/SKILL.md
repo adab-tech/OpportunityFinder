@@ -22,9 +22,67 @@ a static frontend on the same origin.
   - `bootstrap.py` — curated seeds + first-run background ingest
   - `services/subscribers.py` — saved opportunities + email alerts (no-password: email + manage_token)
   - `services/email_sender.py` — pluggable email delivery (see below)
+  - `services/analytics.py` — self-hosted visitor analytics (see below)
+  - `scrapers/synopsis.py` — original one-line synopsis generator (rule-based, no LLM)
+  - `scrapers/deadline_utils.py` — deadline text extraction + `parse_deadline_date` (structured date)
+  - `migrations.py` — lightweight ALTER TABLE runner for columns added to existing tables (see below)
   - `routes/subscribers.py` — `/api/v1/saved`, `/api/v1/alerts` endpoints
-- **Frontend:** static vanilla JS in `frontend/` (no build step), served by the API
+  - `routes/analytics.py` — `/api/v1/analytics/event`, `/api/v1/analytics/summary`
+- **Frontend:** static vanilla JS in `frontend/` (no build step), served by the API.
+  `admin.html` + `js/admin.js` is a separate, unlisted (linked only from the footer) page for
+  viewing analytics — protected by `ADMIN_API_KEY`, not by site navigation.
 - **DB:** SQLite locally, Postgres in production via `DATABASE_URL`
+
+## Schema migrations (no Alembic — by design, for now)
+
+`Base.metadata.create_all()` only creates tables that don't exist yet; it never
+adds a column to a table that's already there. `app/migrations.py` handles this
+for the handful of additive columns this project has needed (`summary`,
+`deadline_at` on `opportunities`) via a simple idempotent `ALTER TABLE ADD
+COLUMN`, run at startup right after `create_all()` in `main.py`'s lifespan.
+
+**Whenever you add a column to an existing model**, add a row to
+`_PENDING_COLUMNS` in `migrations.py` too, or the deployed app will break with
+"no such column" the moment it tries to read/write that field — `create_all()`
+silently does nothing for a table that already exists. If the schema keeps
+growing, this is the point to switch to Alembic instead of extending this list
+further.
+
+## Data quality: original synopses & structured deadlines
+
+- **`summary`** (`scrapers/synopsis.py`, `build_synopsis`) is a rule-based,
+  free, no-external-API sentence generated from already-parsed fields
+  (type/field/location/deadline/funding amount) — deliberately not an
+  LLM call, to keep this sustainable (no per-request cost, no API key,
+  no external dependency that can take the ingest pipeline down). The
+  frontend renders `summary` in preference to the raw scraped
+  `description`. If AI-generated summaries are wanted later, swap the
+  implementation inside `build_synopsis` — every caller already treats
+  it as compute-once-at-ingest-time.
+- **`deadline_at`** (`deadline_utils.parse_deadline_date`, via `python-dateutil`)
+  is a real date parsed from the free-text `deadline` field, so the frontend
+  can compute "3 days left" / "Deadline passed" instead of making people read
+  a date and do the math (see `app.js`'s `deadlineBadge`). Null when the
+  deadline is "Rolling" or unparseable — the frontend falls back to "Check
+  listing for deadline" rather than guessing.
+- Backfill scripts for existing rows (same dry-run/`--apply` pattern as
+  `reclassify_opportunities.py`): `scripts/backfill_deadlines.py` and
+  `scripts/backfill_summary_and_deadline_at.py`.
+
+## Self-hosted visitor analytics
+
+No third-party tracker, no cookies, no IP storage at the app layer — a
+random `client_id` (crypto.randomUUID, generated client-side, stored in
+localStorage) distinguishes repeat browsers from new ones in aggregate
+counts only.
+
+- `POST /api/v1/analytics/event` is public and never errors visibly to the
+  browser — tracking must never break real usage. Fired from `app.js` on
+  pageview, search, each filter type, save/apply clicks, and alert creation.
+- `GET /api/v1/analytics/summary` requires header `X-Admin-Key` matching
+  `settings.ADMIN_API_KEY`. **Unset by default — refuses ALL requests (503)
+  until you configure it.** Set it in Render's environment to actually use
+  `admin.html`.
 
 ## SEO
 

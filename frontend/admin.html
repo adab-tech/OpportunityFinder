@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OpportunityFinder — Admin Analytics</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .admin-wrap { max-width: 720px; margin: 40px auto; padding: 0 24px; }
+    .admin-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; box-shadow: var(--shadow); margin-bottom: 20px; }
+    .admin-card h2 { font-size: 1.05rem; margin-bottom: 14px; }
+    .admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; margin-bottom: 8px; }
+    .admin-stat { text-align: center; padding: 14px; background: var(--bg); border-radius: var(--radius-sm); }
+    .admin-stat .num { font-size: 1.6rem; font-weight: 800; }
+    .admin-stat .label { font-size: .75rem; color: var(--muted); }
+    .admin-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    .admin-table td { padding: 6px 4px; border-bottom: 1px solid var(--border); }
+    .admin-table td:last-child { text-align: right; color: var(--muted); }
+    .key-form { display: flex; gap: 10px; }
+  </style>
+</head>
+<body>
+  <div class="admin-wrap">
+    <div class="admin-card">
+      <h2>OpportunityFinder — Admin Analytics</h2>
+      <p style="color: var(--muted); font-size: .85rem; margin-bottom: 16px;">
+        Enter your admin key (set via the <code>ADMIN_API_KEY</code> environment variable). It's kept only
+        for this browser tab and is never stored persistently.
+      </p>
+      <form id="keyForm" class="key-form">
+        <input type="password" id="keyInput" class="email-input" placeholder="Admin key" required />
+        <button type="submit" class="btn-primary">View Stats</button>
+      </form>
+    </div>
+
+    <div id="results" style="display:none">
+      <div class="admin-card">
+        <h2>Last 7 days</h2>
+        <div class="admin-grid">
+          <div class="admin-stat"><div class="num" id="stat-total">—</div><div class="label">Total Events</div></div>
+          <div class="admin-stat"><div class="num" id="stat-visitors">—</div><div class="label">Unique Visitors</div></div>
+          <div class="admin-stat"><div class="num" id="stat-searches">—</div><div class="label">Searches</div></div>
+          <div class="admin-stat"><div class="num" id="stat-applies">—</div><div class="label">Apply Clicks</div></div>
+        </div>
+      </div>
+      <div class="admin-card">
+        <h2>Top searches</h2>
+        <table class="admin-table" id="table-searches"></table>
+      </div>
+      <div class="admin-card">
+        <h2>Top type/field/location filters</h2>
+        <table class="admin-table" id="table-filters"></table>
+      </div>
+    </div>
+    <p id="errorMsg" style="color: #b91c1c; display:none;"></p>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

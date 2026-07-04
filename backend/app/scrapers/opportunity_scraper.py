@@ -12,9 +12,11 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models import Opportunity
 from app.scrapers.base_scraper import BaseScraper
+from app.scrapers.deadline_utils import parse_deadline_date
 from app.scrapers.google_scraper import GoogleScraper
 from app.scrapers.keywords import OPPORTUNITY_SITES, build_google_queries
 from app.scrapers.rss_ingest import RssIngestor
+from app.scrapers.synopsis import build_synopsis
 from app.scrapers.url_utils import clean_url
 
 logger = logging.getLogger(__name__)
@@ -50,10 +52,12 @@ class OpportunityScraper:
             opp = Opportunity(
                 title=title[:500],
                 description=(data.get("description") or "")[:2000] or None,
+                summary=data.get("summary"),
                 opportunity_type=data.get("opportunity_type", "other"),
                 field=data.get("field"),
                 location=data.get("location"),
                 deadline=data.get("deadline"),
+                deadline_at=data.get("deadline_at"),
                 url=url[:2000],
                 source_name=data.get("source_name"),
                 tags=data.get("tags"),
@@ -85,13 +89,21 @@ class OpportunityScraper:
         description = self.base.get_page_description(soup)
         combined = f"{title or ''} {description or ''} {full_text[:3000]}"
 
+        field = self.base.extract_field(combined)
+        location = self.base.extract_location(combined)
+        deadline = self.base.extract_deadline(full_text)
+
         return {
             "title": title,
             "description": description,
+            "summary": build_synopsis(
+                title or "", opportunity_type, field, location, deadline, description
+            ),
             "opportunity_type": opportunity_type,
-            "field": self.base.extract_field(combined),
-            "location": self.base.extract_location(combined),
-            "deadline": self.base.extract_deadline(full_text),
+            "field": field,
+            "location": location,
+            "deadline": deadline,
+            "deadline_at": parse_deadline_date(deadline),
             "url": url,
             "source_name": self.base.get_domain_name(url),
         }

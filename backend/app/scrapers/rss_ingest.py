@@ -10,8 +10,9 @@ from sqlalchemy.orm import Session
 
 from app.ingest.rss_feeds import RSS_FEEDS
 from app.models import Opportunity
-from app.scrapers.deadline_utils import extract_deadline
+from app.scrapers.deadline_utils import extract_deadline, parse_deadline_date
 from app.scrapers.keywords import detect_opportunity_type
+from app.scrapers.synopsis import build_synopsis
 from app.scrapers.url_utils import clean_url
 
 logger = logging.getLogger(__name__)
@@ -53,10 +54,12 @@ class RssIngestor:
                 Opportunity(
                     title=title[:500],
                     description=_plain_text(data.get("description")),
+                    summary=data.get("summary"),
                     opportunity_type=data.get("opportunity_type", "other"),
                     field=data.get("field"),
                     location=data.get("location"),
                     deadline=data.get("deadline"),
+                    deadline_at=data.get("deadline_at"),
                     url=url[:2000],
                     source_name=data.get("source_name"),
                     is_active=True,
@@ -77,7 +80,7 @@ class RssIngestor:
         if not link or not title:
             return None
 
-        summary = (
+        raw_summary = (
             getattr(entry, "summary", None)
             or getattr(entry, "description", None)
             or ""
@@ -87,16 +90,22 @@ class RssIngestor:
         if opportunity_type == "mixed":
             opportunity_type = detect_opportunity_type(title)
 
-        plain_summary = _plain_text(summary)
-        deadline = extract_deadline(f"{title} {plain_summary or ''}")
+        plain_description = _plain_text(raw_summary)
+        deadline = extract_deadline(f"{title} {plain_description or ''}")
+        field = spec.get("field")
+        location = spec.get("location")
 
         return {
             "title": title,
-            "description": plain_summary,
+            "description": plain_description,
+            "summary": build_synopsis(
+                title, opportunity_type, field, location, deadline, plain_description
+            ),
             "opportunity_type": opportunity_type,
-            "field": spec.get("field"),
-            "location": spec.get("location"),
+            "field": field,
+            "location": location,
             "deadline": deadline,
+            "deadline_at": parse_deadline_date(deadline),
             "url": link,
             "source_name": spec.get("source_name"),
         }

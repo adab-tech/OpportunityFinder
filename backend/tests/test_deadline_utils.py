@@ -1,4 +1,6 @@
-from app.scrapers.deadline_utils import extract_deadline
+from datetime import date
+
+from app.scrapers.deadline_utils import extract_deadline, parse_deadline_date
 
 
 class TestExtractDeadline:
@@ -50,3 +52,26 @@ class TestExtractDeadline:
     def test_slash_date_format(self):
         text = "Deadline: 12/31/2026 for all regions"
         assert extract_deadline(text) == "12/31/2026"
+
+
+class TestParseDeadlineDate:
+    def test_none_returns_none(self):
+        assert parse_deadline_date(None) is None
+
+    def test_rolling_returns_none(self):
+        assert parse_deadline_date("Rolling") is None
+
+    def test_ordinal_suffix_parses_correctly(self):
+        assert parse_deadline_date("September 23rd, 2026") == date(2026, 9, 23)
+
+    def test_day_month_year_order(self):
+        assert parse_deadline_date("29 June 2026") == date(2026, 6, 29)
+
+    def test_iso_date(self):
+        assert parse_deadline_date("2026-09-01") == date(2026, 9, 1)
+
+    def test_unparseable_text_returns_none(self):
+        assert parse_deadline_date("sometime next quarter") is None
+
+    def test_empty_string_returns_none(self):
+        assert parse_deadline_date("") is None

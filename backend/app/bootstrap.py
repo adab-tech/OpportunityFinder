@@ -162,6 +162,10 @@ def seed_curated_opportunities(db) -> int:
             Opportunity(
                 title=row["title"][:500],
                 description=(row.get("description") or "")[:2000],
+                # These seed descriptions are already hand-written
+                # one-liners (not scraped text), so they double as the
+                # synopsis directly.
+                summary=(row.get("description") or "")[:300] or None,
                 opportunity_type=row["opportunity_type"],
                 field=row.get("field"),
                 location=row.get("location"),

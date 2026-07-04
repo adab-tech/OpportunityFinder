@@ -11,7 +11,8 @@ from sqlalchemy import text
 from app.bootstrap import run_startup_tasks
 from app.config import settings
 from app.database import Base, engine
-from app.routes import opportunities, scraper, subscribers
+from app.migrations import run_pending_column_migrations
+from app.routes import analytics, opportunities, scraper, subscribers
 from app.scheduler import shutdown_scheduler, start_scheduler
 
 logging.basicConfig(
@@ -27,6 +28,7 @@ FRONTEND_DIR = BASE_DIR / "frontend"
 async def lifespan(app: FastAPI):
     # ---- startup ----
     Base.metadata.create_all(bind=engine)
+    run_pending_column_migrations(engine)
     if settings.ENABLE_SCHEDULER:
         start_scheduler()
     threading.Thread(target=run_startup_tasks, daemon=True).start()
@@ -61,6 +63,7 @@ app.add_middleware(
 app.include_router(opportunities.router, prefix="/api/v1")
 app.include_router(scraper.router, prefix="/api/v1")
 app.include_router(subscribers.router, prefix="/api/v1")
+app.include_router(analytics.router, prefix="/api/v1")
 
 
 @app.get("/health", tags=["System"])

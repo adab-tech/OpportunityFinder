@@ -401,6 +401,14 @@ body {
 
 .tag-deadline { background: #fff7ed; border-color: #fed7aa; color: #c2410c; }
 
+/* Deadline urgency variants — so people don't have to read a date and
+   do the math themselves. */
+.tag-deadline-urgent  { background: #fef2f2; border-color: #fecaca; color: #b91c1c; font-weight: 700; }
+.tag-deadline-soon    { background: #fffbeb; border-color: #fde68a; color: #b45309; }
+.tag-deadline-passed  { background: #f3f4f6; border-color: #d1d5db; color: #6b7280; text-decoration: line-through; }
+.tag-deadline-rolling { background: var(--grant-bg); border-color: var(--grant); color: var(--grant); }
+.tag-deadline-unknown { background: var(--bg); border-color: var(--border); color: var(--muted); font-style: italic; }
+
 /* Card footer */
 .card-foot {
   display: flex;
@@ -623,6 +631,8 @@ body {
 
 .footer strong { color: #fff; }
 .footer-note { font-size: .76rem; }
+.footer-admin-link { color: #94a3b8; text-decoration: underline; opacity: .7; }
+.footer-admin-link:hover { opacity: 1; }
 
 /* ------- Responsive tweaks ------- */
 
