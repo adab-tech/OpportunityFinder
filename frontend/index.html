@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OpportunityFinder — Scholarships, Fellowships, Grants & Jobs Worldwide</title>
-  <meta name="description" content="Free scholarships, fellowships, grants, and jobs for students and professionals around the world — plain-English summaries and clear deadlines for every listing, gathered automatically and refreshed every few hours. Save opportunities and get weekly email alerts, no account needed." />
+  <meta name="description" content="Scholarships, fellowships, grants, and jobs worldwide — plain-English summaries, real deadlines, refreshed automatically. Save listings and get weekly alerts, no account needed." />
   <meta name="keywords" content="scholarships, fully funded scholarships, fellowships, research grants, international jobs, NGO jobs, study abroad, postgraduate scholarships, PhD scholarships, remote jobs, call for applications, global opportunities" />
   <meta name="author" content="OpportunityFinder" />
   <meta name="robots" content="index, follow" />
@@ -14,13 +14,13 @@
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="OpportunityFinder" />
   <meta property="og:title" content="OpportunityFinder — Scholarships, Fellowships, Grants & Jobs Worldwide" />
-  <meta property="og:description" content="Free, fully funded scholarships, fellowships, grants, and jobs from around the world — plain-English summaries, clear deadlines, and no account needed to save opportunities or get weekly alerts." />
+  <meta property="og:description" content="Scholarships, fellowships, grants, and jobs worldwide — plain-English summaries and real deadlines. Save listings and get weekly alerts, no account needed." />
   <meta property="og:url" content="https://adab-opportunityfinder.onrender.com/" />
 
   <!-- Twitter / X card -->
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="OpportunityFinder — Scholarships, Fellowships, Grants & Jobs Worldwide" />
-  <meta name="twitter:description" content="Free, fully funded scholarships, fellowships, grants, and jobs worldwide — plain-English summaries and clear deadlines for every listing." />
+  <meta name="twitter:description" content="Scholarships, fellowships, grants, and jobs worldwide — plain-English summaries and real deadlines." />
 
   <meta name="theme-color" content="#fafaf9" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%234f46e5'/%3E%3Ctext x='50' y='72' font-size='62' font-family='Arial' font-weight='bold' fill='white' text-anchor='middle'%3EO%3C/text%3E%3C/svg%3E" />
@@ -57,7 +57,7 @@
           <path d="M14 14L18 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
         <input id="searchInput" class="search-input" type="search"
-               placeholder="Search opportunities — keyword, field, organisation, location…" />
+               placeholder="Search by keyword, field, or location…" />
         <button class="search-submit" id="searchBtn">Search</button>
       </div>
 
@@ -72,11 +72,7 @@
   <section class="page-head">
     <div class="container">
       <h1 class="page-title">Open opportunities worldwide</h1>
-      <p class="page-sub">
-        Scholarships, fellowships, grants, and jobs — every listing summarised in
-        plain English with a clear deadline, gathered automatically and checked so
-        nothing expired ever shows.
-      </p>
+      <p class="page-sub">Scholarships, fellowships, grants, and jobs — plain-English summaries, real deadlines, refreshed automatically.</p>
       <p class="page-meta" id="pageMeta"></p>
     </div>
   </section>
@@ -140,7 +136,7 @@
 
         <div class="sidebar-cta">
           <h3>Never miss a deadline</h3>
-          <p>Get a weekly email when new opportunities match your current filters. No password, no spam.</p>
+          <p>Weekly email for new matches. No password, no spam.</p>
           <button class="btn-solid btn-block" id="sidebarAlertsBtn">Set up alerts</button>
         </div>
       </aside>
@@ -166,9 +162,9 @@
 
         <!-- Empty state -->
         <div id="emptyState" class="empty" style="display:none">
-          <h3>No matching opportunities yet</h3>
-          <p id="emptyMsg">Try a broader search or fewer filters — or click <strong>Find new</strong> to search the web for more opportunities right now.</p>
-          <button class="btn-solid" id="emptyBtn">Find opportunities now</button>
+          <h3>No matches</h3>
+          <p id="emptyMsg">Try fewer filters, or search the web for more right now.</p>
+          <button class="btn-solid" id="emptyBtn">Find opportunities</button>
         </div>
 
         <!-- Listing rows -->
@@ -185,9 +181,9 @@
   <div id="modal" class="modal-overlay" style="display:none">
     <div class="modal-box">
       <h3>Searching the web…</h3>
-      <p>Looking for new scholarships, fellowships, grants, and jobs. This runs in the background — you can close this dialog.</p>
+      <p>Looking for new listings. Runs in the background — safe to close this.</p>
       <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
-      <p class="modal-note">New results will appear automatically as they are found.</p>
+      <p class="modal-note">Results appear automatically as they're found.</p>
       <button class="btn-ghost" id="closeModal">Close &amp; continue in background</button>
     </div>
   </div>
@@ -196,7 +192,7 @@
   <div id="saveModal" class="modal-overlay" style="display:none">
     <div class="modal-box">
       <h3>Save this opportunity</h3>
-      <p>Enter your email — no password needed. We'll send you a link to view and manage everything you've saved.</p>
+      <p>Just your email, no password. We'll send a link to manage everything you've saved.</p>
       <form id="saveForm" class="email-form">
         <input type="email" id="saveEmailInput" class="email-input" placeholder="you@example.com" required />
         <button type="submit" class="btn-solid">Save it</button>
@@ -209,7 +205,7 @@
   <div id="alertsModal" class="modal-overlay" style="display:none">
     <div class="modal-box">
       <h3>Get weekly alerts</h3>
-      <p>No password, no spam — just a weekly email when new opportunities match your filters. Uses your current search/filter selections.</p>
+      <p>Weekly email when new opportunities match your current filters. No password, no spam.</p>
       <form id="alertsForm" class="email-form">
         <input type="email" id="alertsEmailInput" class="email-input" placeholder="you@example.com" required />
         <button type="submit" class="btn-solid">Create alert</button>
@@ -221,8 +217,8 @@
   <!-- ═══════════════════════════ FOOTER ═══════════════════════════ -->
   <footer class="footer">
     <div class="container footer-inner">
-      <span><strong>OpportunityFinder</strong> — real scholarships, fellowships, grants, and jobs, gathered and refreshed around the clock so you don't miss the one that changes things for you.</span>
-      <span class="footer-note">Every listing links to its official source. Always confirm the final deadline and eligibility there before you apply.</span>
+      <span><strong>OpportunityFinder</strong> — scholarships, fellowships, grants, and jobs worldwide. Free, no account required.</span>
+      <span class="footer-note">Every listing links to its official source — verify deadlines and eligibility there before applying.</span>
     </div>
   </footer>
 
