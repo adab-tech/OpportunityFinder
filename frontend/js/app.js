@@ -372,13 +372,13 @@ function deadlineBadge(opp) {
 
 function cardHTML(opp) {
   const type   = opp.opportunity_type || 'other';
-  const labels = { scholarship: '🎓 Scholarship', fellowship: '🔬 Fellowship',
-                   grant: '💰 Grant', job: '💼 Job', other: '📌 Other' };
+  const labels = { scholarship: 'Scholarship', fellowship: 'Fellowship',
+                   grant: 'Grant', job: 'Job', other: 'Other' };
 
   const dl       = deadlineBadge(opp);
-  const deadline = `<span class="tag ${dl.cls}">⏰ ${esc(dl.text)}</span>`;
-  const field    = opp.field    ? `<span class="tag">📚 ${esc(opp.field)}</span>`    : '';
-  const location = opp.location ? `<span class="tag">📍 ${esc(opp.location)}</span>` : '';
+  const deadline = `<span class="tag ${dl.cls}">${esc(dl.text)}</span>`;
+  const field    = opp.field    ? `<span class="tag">${esc(opp.field)}</span>`    : '';
+  const location = opp.location ? `<span class="tag">${esc(opp.location)}</span>` : '';
   /* Prefer our own original synopsis over the raw scraped description,
      so people get a plain-English idea of the opportunity at a glance. */
   const bodyText = opp.summary || opp.description;
@@ -398,15 +398,15 @@ function cardHTML(opp) {
           <span class="badge badge-${type}">${labels[type] || type}</span>
         </div>
         <h3 class="card-title">${esc(opp.title)}</h3>
-        ${opp.source_name ? `<p class="card-source">🌐 ${esc(opp.source_name)}</p>` : ''}
+        ${opp.source_name ? `<p class="card-source">via ${esc(opp.source_name)}</p>` : ''}
         ${desc}
         <div class="card-tags">${field}${location}${deadline}</div>
       </div>
       <div class="card-foot">
         <span class="card-date">Added ${added}</span>
-        <button class="btn-save" data-id="${opp.id}" title="Save this opportunity">☆ Save</button>
+        <button class="btn-save" data-id="${opp.id}" title="Save this opportunity">Save</button>
         <a href="${esc(safeUrl)}" target="_blank" rel="noopener noreferrer" data-id="${opp.id}"
-           class="btn-apply apply-${type}">Apply Now →</a>
+           class="btn-apply apply-${type}">Apply →</a>
       </div>
     </article>`;
 }
@@ -473,6 +473,9 @@ function toast(msg, level = 'info') {
 function animateCount(id, target) {
   const el = $(id);
   if (!el || isNaN(target)) return;
+  /* rAF doesn't fire in hidden/background tabs — set the value directly
+     so stats never sit at "—" for someone who opened us in a new tab. */
+  if (document.hidden) { el.textContent = target.toLocaleString(); return; }
   const start    = parseInt(el.textContent) || 0;
   const duration = 900;
   const t0       = performance.now();

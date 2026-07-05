@@ -22,12 +22,14 @@
   <meta name="twitter:title" content="OpportunityFinder — Scholarships, Fellowships, Grants & Jobs Worldwide" />
   <meta name="twitter:description" content="Free, fully funded scholarships, fellowships, grants, and jobs worldwide — plain-English summaries and clear deadlines for every listing." />
 
-  <meta name="theme-color" content="#6366f1" />
+  <meta name="theme-color" content="#fafaf9" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%AF%3C/text%3E%3C/svg%3E" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700&display=swap" rel="stylesheet" />
+  <!-- ?v= is bumped on each visual/behavioural release so returning
+       visitors' browsers fetch the new assets instead of stale caches -->
+  <link rel="stylesheet" href="css/style.css?v=2" />
 
   <script type="application/ld+json">
   {
@@ -46,7 +48,7 @@
     <div class="container">
       <div class="header-inner">
         <div class="brand">
-          <span class="brand-icon">🎯</span>
+          <span class="brand-mark">O</span>
           <div>
             <div class="brand-name">OpportunityFinder</div>
             <div class="brand-sub">Clear opportunities, worldwide</div>
@@ -55,18 +57,14 @@
 
         <nav class="top-nav" id="topNav">
           <button class="nav-pill active" data-type="">All</button>
-          <button class="nav-pill" data-type="scholarship">🎓 Scholarships</button>
-          <button class="nav-pill" data-type="fellowship">🔬 Fellowships</button>
-          <button class="nav-pill" data-type="grant">💰 Grants</button>
-          <button class="nav-pill" data-type="job">💼 Jobs</button>
+          <button class="nav-pill" data-type="scholarship">Scholarships</button>
+          <button class="nav-pill" data-type="fellowship">Fellowships</button>
+          <button class="nav-pill" data-type="grant">Grants</button>
+          <button class="nav-pill" data-type="job">Jobs</button>
         </nav>
 
-        <button class="btn-outline" id="alertsBtn">
-          <span>🔔</span> Get Alerts
-        </button>
-        <button class="btn-find" id="scrapeBtn">
-          <span>🔍</span> Find New
-        </button>
+        <button class="btn-outline" id="alertsBtn">Get Alerts</button>
+        <button class="btn-find" id="scrapeBtn">Find New</button>
       </div>
     </div>
   </header>
@@ -74,7 +72,8 @@
   <!-- ═══════════════════════════ HERO ════════════════════════════ -->
   <section class="hero">
     <div class="container">
-      <h1 class="hero-title">Discover Your Next <span class="gradient-text">Opportunity</span></h1>
+      <p class="hero-eyebrow">Scholarships · Fellowships · Grants · Jobs</p>
+      <h1 class="hero-title">Discover your next<br /><span class="gradient-text">opportunity</span></h1>
       <p class="hero-sub">
         Free, fully funded scholarships, fellowships, grants, and jobs from around the world. Every listing gets a plain-English summary and a clear deadline — no digging through pages of source text to figure out what it actually is or when it's due.
       </p>
@@ -122,10 +121,10 @@
       <div class="filters">
         <div class="type-pills">
           <button class="pill active" data-filter="type" data-value="">All Types</button>
-          <button class="pill type-scholarship" data-filter="type" data-value="scholarship">🎓 Scholarships</button>
-          <button class="pill type-fellowship" data-filter="type" data-value="fellowship">🔬 Fellowships</button>
-          <button class="pill type-grant"       data-filter="type" data-value="grant">💰 Grants</button>
-          <button class="pill type-job"         data-filter="type" data-value="job">💼 Jobs</button>
+          <button class="pill type-scholarship" data-filter="type" data-value="scholarship">Scholarships</button>
+          <button class="pill type-fellowship" data-filter="type" data-value="fellowship">Fellowships</button>
+          <button class="pill type-grant"       data-filter="type" data-value="grant">Grants</button>
+          <button class="pill type-job"         data-filter="type" data-value="job">Jobs</button>
         </div>
         <div class="select-group">
           <select id="fieldFilter" class="fselect">
@@ -238,6 +237,6 @@
   </footer>
 
   <script src="config.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/app.js?v=2"></script>
 </body>
 </html>
