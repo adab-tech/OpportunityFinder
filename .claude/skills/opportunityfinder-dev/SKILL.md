@@ -93,12 +93,12 @@ further.
 `GoogleScraper.search()` tries sources in order, using whichever is configured:
 
 1. **Google Custom Search JSON API** — `GOOGLE_API_KEY` + `GOOGLE_CSE_ID` (100 free/day)
-2. **You.com Search API** — `YOU_API_KEY` only, endpoint `api.ydc-index.io/search`,
-   header `X-API-Key`. Parses `hits` (or `results`) → `url` defensively, since the
-   exact response shape was implemented from public docs, not verified against a
-   live key — if it silently returns nothing once a real key is set, check
-   `logger.warning` output for "no recognizable URL field" and adjust the parsing
-   in `_search_via_you_com`.
+2. **You.com Web Search API** — `YOU_API_KEY` only. Endpoint `https://ydc-index.io/v1/search`
+   (GET), header `X-API-Key`, param `count` (max 100). Response shape confirmed against
+   You.com's real published docs (2026-07-05):
+   `{"results": {"web": [{"url": ...}], "news": [{"url": ...}]}}` — pulls URLs from
+   both `web` and `news`. **Pricing: $5.00/1,000 calls** (not free-tier like Google's
+   100/day — new accounts get $100 in credit, ~20k calls, but it's metered after that).
 3. **googlesearch-python** (unofficial scrape, no key)
 4. **Direct HTTP to google.com** (last resort)
 

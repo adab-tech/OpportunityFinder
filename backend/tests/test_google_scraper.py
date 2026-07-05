@@ -10,14 +10,16 @@ class TestYouComSearch:
             mock_settings.YOU_API_KEY = None
             assert scraper._search_via_you_com("scholarship", 10) == []
 
-    def test_parses_hits_key(self):
+    def test_parses_web_results(self):
         scraper = GoogleScraper()
         mock_response = MagicMock()
         mock_response.json.return_value = {
-            "hits": [
-                {"url": "https://example.org/scholarship-1"},
-                {"url": "https://example.org/scholarship-2"},
-            ]
+            "results": {
+                "web": [
+                    {"url": "https://example.org/scholarship-1", "title": "A"},
+                    {"url": "https://example.org/scholarship-2", "title": "B"},
+                ]
+            }
         }
         mock_response.raise_for_status.return_value = None
 
@@ -30,11 +32,17 @@ class TestYouComSearch:
         # Confirm the API key is sent as a header, not a URL param
         _, kwargs = mock_get.call_args
         assert kwargs["headers"]["X-API-Key"] == "fake-key"
+        assert kwargs["params"]["count"] == 10
 
-    def test_parses_results_key_fallback(self):
+    def test_parses_news_results_too(self):
         scraper = GoogleScraper()
         mock_response = MagicMock()
-        mock_response.json.return_value = {"results": [{"url": "https://example.org/x"}]}
+        mock_response.json.return_value = {
+            "results": {
+                "web": [{"url": "https://example.org/web-1"}],
+                "news": [{"url": "https://example.org/news-1"}],
+            }
+        }
         mock_response.raise_for_status.return_value = None
 
         with patch("app.scrapers.google_scraper.settings") as mock_settings:
@@ -42,7 +50,18 @@ class TestYouComSearch:
             with patch("app.scrapers.google_scraper.requests.get", return_value=mock_response):
                 urls = scraper._search_via_you_com("scholarship", 10)
 
-        assert urls == ["https://example.org/x"]
+        assert urls == ["https://example.org/web-1", "https://example.org/news-1"]
+
+    def test_no_web_or_news_key_returns_empty(self):
+        scraper = GoogleScraper()
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"results": {}}
+        mock_response.raise_for_status.return_value = None
+
+        with patch("app.scrapers.google_scraper.settings") as mock_settings:
+            mock_settings.YOU_API_KEY = "fake-key"
+            with patch("app.scrapers.google_scraper.requests.get", return_value=mock_response):
+                assert scraper._search_via_you_com("scholarship", 10) == []
 
     def test_request_error_returns_empty_not_raises(self):
         scraper = GoogleScraper()
@@ -51,16 +70,19 @@ class TestYouComSearch:
             with patch("app.scrapers.google_scraper.requests.get", side_effect=Exception("network error")):
                 assert scraper._search_via_you_com("scholarship", 10) == []
 
-    def test_unrecognized_shape_returns_empty_not_raises(self):
+    def test_count_is_capped_at_100(self):
         scraper = GoogleScraper()
         mock_response = MagicMock()
-        mock_response.json.return_value = {"hits": [{"unexpected": "shape"}]}
+        mock_response.json.return_value = {"results": {"web": []}}
         mock_response.raise_for_status.return_value = None
 
         with patch("app.scrapers.google_scraper.settings") as mock_settings:
             mock_settings.YOU_API_KEY = "fake-key"
-            with patch("app.scrapers.google_scraper.requests.get", return_value=mock_response):
-                assert scraper._search_via_you_com("scholarship", 10) == []
+            with patch("app.scrapers.google_scraper.requests.get", return_value=mock_response) as mock_get:
+                scraper._search_via_you_com("scholarship", 500)
+
+        _, kwargs = mock_get.call_args
+        assert kwargs["params"]["count"] == 100
 
 
 class TestSearchPriorityOrder:

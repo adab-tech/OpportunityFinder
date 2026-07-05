@@ -61,31 +61,34 @@ class GoogleScraper:
             return []
 
     def _search_via_you_com(self, query: str, num: int) -> list[str]:
-        """You.com Search API — a second official discovery source, tried
-        after Google's API (if configured) and before the unofficial
-        scraping fallback. Response shape per You.com's public Search API
-        docs (documentation.you.com): a JSON body with a "hits" array,
-        each hit carrying a "url". Parsed defensively — if You.com changes
-        this shape, we log the raw keys once rather than silently
-        returning nothing forever.
+        """You.com Web Search API (https://ydc-index.io/v1/search) — a
+        second official discovery source, tried after Google's API (if
+        configured) and before the unofficial scraping fallback.
+
+        Response shape (per You.com's published API docs):
+            {"results": {"web": [{"url": ..., "title": ..., ...}, ...],
+                         "news": [{"url": ..., ...}, ...]}}
+        We pull URLs from both `web` and `news` — a funding announcement
+        can legitimately surface as either.
         """
         if not settings.YOU_API_KEY:
             return []
         try:
             r = requests.get(
-                "https://api.ydc-index.io/search",
-                params={"query": query, "num_web_results": min(num, 20)},
+                "https://ydc-index.io/v1/search",
+                params={"query": query, "count": min(num, 100)},
                 headers={"X-API-Key": settings.YOU_API_KEY},
                 timeout=10,
             )
             r.raise_for_status()
             body = r.json()
 
-            hits = body.get("hits") or body.get("results") or []
-            urls = [hit["url"] for hit in hits if isinstance(hit, dict) and hit.get("url")]
-            if hits and not urls:
-                sample_keys = list(hits[0].keys()) if hits else []
-                logger.warning("You.com response had no recognizable URL field: keys=%s", sample_keys)
+            results = body.get("results") or {}
+            web = results.get("web") or []
+            news = results.get("news") or []
+            urls = [item["url"] for item in (web + news) if isinstance(item, dict) and item.get("url")]
+            if (web or news) and not urls:
+                logger.warning("You.com response had no recognizable URL field in web/news results")
             return urls
         except Exception as exc:
             logger.warning(f"You.com API search failed: {exc}")
