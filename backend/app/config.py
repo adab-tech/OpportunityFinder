@@ -48,6 +48,12 @@ class Settings(BaseSettings):
     PUBLIC_BASE_URL: str | None = None
     ALERT_DIGEST_INTERVAL_HOURS: int = 168  # weekly
 
+    # Deadline reminders for saved opportunities — sent once per saved
+    # item when its deadline is this many days away or closer, so saving
+    # something doesn't silently guarantee remembering it.
+    SAVED_REMINDER_DAYS_BEFORE: int = 3
+    SAVED_REMINDER_INTERVAL_HOURS: int = 24
+
     # Self-hosted analytics — the summary endpoint requires this key
     # (header X-Admin-Key) so visitor stats are never publicly readable.
     # Unset by default: the endpoint refuses all requests until you set it.

@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.ingest.rss_feeds import RSS_FEEDS
 from app.models import Opportunity
 from app.scrapers.deadline_utils import extract_deadline, parse_deadline_date
+from app.scrapers.dedup import normalize_title
 from app.scrapers.keywords import detect_opportunity_type
 from app.scrapers.synopsis import build_synopsis
 from app.scrapers.url_utils import clean_url
@@ -41,11 +42,28 @@ def _plain_text(value: str | None, limit: int = 2000) -> str | None:
 class RssIngestor:
     def __init__(self, db: Session):
         self.db = db
-        self.stats: dict[str, int] = {"feeds": 0, "entries": 0, "saved": 0, "errors": 0}
+        self.stats: dict[str, int] = {
+            "feeds": 0, "entries": 0, "saved": 0, "errors": 0, "duplicates": 0,
+        }
 
     def _url_exists(self, url: str) -> bool:
         return (
             self.db.query(Opportunity).filter(Opportunity.url == url).first()
+            is not None
+        )
+
+    def _is_cross_source_duplicate(self, title_normalized: str) -> bool:
+        """True if an active opportunity with the same normalized title
+        already exists (a repost of the same listing under a different
+        URL from another aggregator) — see app/scrapers/dedup.py.
+        """
+        return (
+            self.db.query(Opportunity)
+            .filter(
+                Opportunity.title_normalized == title_normalized,
+                Opportunity.is_active.is_(True),
+            )
+            .first()
             is not None
         )
 
@@ -57,10 +75,16 @@ class RssIngestor:
         if self._url_exists(url):
             return False
 
+        title_normalized = normalize_title(title)
+        if self._is_cross_source_duplicate(title_normalized):
+            self.stats["duplicates"] += 1
+            return False
+
         try:
             self.db.add(
                 Opportunity(
                     title=title[:500],
+                    title_normalized=title_normalized,
                     description=_plain_text(data.get("description")),
                     summary=data.get("summary"),
                     opportunity_type=data.get("opportunity_type", "other"),

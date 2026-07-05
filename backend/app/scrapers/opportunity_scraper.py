@@ -13,6 +13,7 @@ from app.config import settings
 from app.models import Opportunity
 from app.scrapers.base_scraper import BaseScraper
 from app.scrapers.deadline_utils import parse_deadline_date
+from app.scrapers.dedup import normalize_title
 from app.scrapers.google_scraper import GoogleScraper
 from app.scrapers.keywords import OPPORTUNITY_SITES, build_google_queries
 from app.scrapers.rss_ingest import RssIngestor
@@ -27,7 +28,7 @@ class OpportunityScraper:
         self.db = db
         self.base = BaseScraper()
         self.google = GoogleScraper()
-        self.stats = {"scraped": 0, "saved": 0, "errors": 0}
+        self.stats = {"scraped": 0, "saved": 0, "errors": 0, "duplicates": 0}
 
     # ------------------------------------------------------------------
     # Database helpers
@@ -36,6 +37,21 @@ class OpportunityScraper:
     def _url_exists(self, url: str) -> bool:
         return (
             self.db.query(Opportunity).filter(Opportunity.url == url).first()
+            is not None
+        )
+
+    def _is_cross_source_duplicate(self, title_normalized: str) -> bool:
+        """True if an active opportunity with the same normalized title
+        already exists (a repost of the same listing under a different
+        URL) — see app/scrapers/dedup.py.
+        """
+        return (
+            self.db.query(Opportunity)
+            .filter(
+                Opportunity.title_normalized == title_normalized,
+                Opportunity.is_active.is_(True),
+            )
+            .first()
             is not None
         )
 
@@ -48,9 +64,15 @@ class OpportunityScraper:
         if self._url_exists(url):
             return False
 
+        title_normalized = normalize_title(title)
+        if self._is_cross_source_duplicate(title_normalized):
+            self.stats["duplicates"] += 1
+            return False
+
         try:
             opp = Opportunity(
                 title=title[:500],
+                title_normalized=title_normalized,
                 description=(data.get("description") or "")[:2000] or None,
                 summary=data.get("summary"),
                 opportunity_type=data.get("opportunity_type", "other"),

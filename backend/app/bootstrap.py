@@ -7,6 +7,7 @@ from typing import Any
 from app.config import settings
 from app.database import SessionLocal
 from app.models import Opportunity
+from app.scrapers.dedup import normalize_title
 from app.scrapers.opportunity_scraper import OpportunityScraper
 from app.scrapers.rss_ingest import RssIngestor
 
@@ -161,6 +162,7 @@ def seed_curated_opportunities(db) -> int:
         db.add(
             Opportunity(
                 title=row["title"][:500],
+                title_normalized=normalize_title(row["title"]),
                 description=(row.get("description") or "")[:2000],
                 # These seed descriptions are already hand-written
                 # one-liners (not scraped text), so they double as the

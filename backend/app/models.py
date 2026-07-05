@@ -27,6 +27,10 @@ class Opportunity(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(500), nullable=False)
+    # Lowercased/punctuation-stripped title, used to catch the same
+    # opportunity reposted verbatim under a different URL by another
+    # aggregator. See app/scrapers/dedup.py.
+    title_normalized = Column(String(600), index=True, nullable=True)
     description = Column(Text)
     # Original one-line synopsis we generate — the primary text shown on
     # cards, so people aren't just reading copy-pasted third-party text.
@@ -93,6 +97,9 @@ class SavedOpportunity(Base):
         Integer, ForeignKey("opportunities.id", ondelete="CASCADE"), nullable=False, index=True
     )
     saved_at = Column(DateTime(timezone=True), server_default=func.now())
+    # Set once a deadline-approaching reminder email has been sent for
+    # this saved item, so we never email the same reminder twice.
+    reminder_sent_at = Column(DateTime(timezone=True), nullable=True)
 
     subscriber = relationship("Subscriber", back_populates="saved_opportunities")
     opportunity = relationship("Opportunity")

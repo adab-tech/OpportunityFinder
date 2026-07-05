@@ -24,6 +24,8 @@ logger = logging.getLogger(__name__)
 _PENDING_COLUMNS: list[tuple[str, str, str]] = [
     ("opportunities", "summary", "VARCHAR(300)"),
     ("opportunities", "deadline_at", "DATE"),
+    ("opportunities", "title_normalized", "VARCHAR(600)"),
+    ("saved_opportunities", "reminder_sent_at", "TIMESTAMP"),
 ]
 
 

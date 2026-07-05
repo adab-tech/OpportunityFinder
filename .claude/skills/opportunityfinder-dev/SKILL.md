@@ -25,6 +25,7 @@ a static frontend on the same origin.
   - `services/analytics.py` — self-hosted visitor analytics (see below)
   - `scrapers/synopsis.py` — original one-line synopsis generator (rule-based, no LLM)
   - `scrapers/deadline_utils.py` — deadline text extraction + `parse_deadline_date` (structured date)
+  - `scrapers/dedup.py` — `normalize_title` for cross-source duplicate detection (see below)
   - `migrations.py` — lightweight ALTER TABLE runner for columns added to existing tables (see below)
   - `routes/subscribers.py` — `/api/v1/saved`, `/api/v1/alerts` endpoints
   - `routes/analytics.py` — `/api/v1/analytics/event`, `/api/v1/analytics/summary`
@@ -100,6 +101,32 @@ counts only.
   footer link, no nav entry) — this is serious software, not a hobby
   project, and a visible "Admin" link undercuts that. Reach it by typing
   the URL directly; it's still protected by `ADMIN_API_KEY` either way.
+
+## Cross-source duplicate detection
+
+The same opportunity is frequently reposted verbatim by two different
+aggregator feeds under different URLs — `Opportunity.title_normalized`
+(lowercased, punctuation-stripped, whitespace-collapsed, via
+`scrapers/dedup.normalize_title`) is checked against active rows before
+every save in both `rss_ingest.py` and `opportunity_scraper.py`; a match
+is skipped and counted in `stats["duplicates"]`, not inserted.
+**Deliberately exact-match, not fuzzy** — year digits are kept in the
+normalized title on purpose, since a 2026 cohort and a 2027 cohort of the
+same program are genuinely different opportunities and fuzzy matching
+risked merging them. `scripts/backfill_dedup.py` (dry-run/`--apply`)
+backfills `title_normalized` on existing rows and deactivates (never
+deletes) already-ingested duplicate groups, keeping the earliest-seen row.
+
+## Deadline reminders for saved opportunities
+
+`services/subscribers.run_saved_deadline_reminders` emails each
+`SavedOpportunity` once when its `Opportunity.deadline_at` falls within
+`SAVED_REMINDER_DAYS_BEFORE` (default 3) days and hasn't already passed —
+tracked via `SavedOpportunity.reminder_sent_at` so it never repeats. Runs
+on `scheduler.py`'s `saved_deadline_reminders` job every
+`SAVED_REMINDER_INTERVAL_HOURS` (default 24h). This exists because saving
+an opportunity shouldn't silently rely on the person remembering to check
+back before it's due.
 
 ## SEO
 

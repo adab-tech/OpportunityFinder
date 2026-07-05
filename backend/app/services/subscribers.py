@@ -5,7 +5,7 @@ against a database session, without going through FastAPI/TestClient.
 """
 
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -228,4 +228,65 @@ def run_alert_digest(db: Session) -> dict[str, int]:
 
     db.commit()
     logger.info("Alert digest run complete: %s", stats)
+    return stats
+
+
+def run_saved_deadline_reminders(db: Session) -> dict[str, int]:
+    """Email a one-time reminder for each saved opportunity whose deadline
+    is now within SAVED_REMINDER_DAYS_BEFORE days (and hasn't passed) —
+    saving something shouldn't silently rely on the person remembering it
+    themselves. Each SavedOpportunity is reminded at most once, tracked by
+    reminder_sent_at.
+    """
+    stats = {"checked": 0, "reminders_sent": 0}
+    sender = get_email_sender()
+    today = datetime.now(UTC).date()
+    horizon = settings.SAVED_REMINDER_DAYS_BEFORE
+
+    pending = (
+        db.query(SavedOpportunity)
+        .join(Opportunity, SavedOpportunity.opportunity_id == Opportunity.id)
+        .filter(
+            SavedOpportunity.reminder_sent_at.is_(None),
+            Opportunity.deadline_at.isnot(None),
+        )
+        .all()
+    )
+
+    for saved in pending:
+        stats["checked"] += 1
+        opportunity = saved.opportunity
+        deadline: date = opportunity.deadline_at
+        days_left = (deadline - today).days
+
+        if days_left < 0 or days_left > horizon:
+            continue  # too far away, or already past — no reminder either way
+
+        subscriber = saved.subscriber
+        text = (
+            f'Your saved opportunity "{opportunity.title}" is due in '
+            f"{days_left} day{'s' if days_left != 1 else ''} (deadline: {opportunity.deadline}).\n\n"
+            f"Apply here: {opportunity.url}\n\n"
+            f"Manage your saved opportunities: {manage_url(subscriber)}\n"
+        )
+        html = (
+            f'<p>Your saved opportunity <strong>{opportunity.title}</strong> is due in '
+            f"{days_left} day{'s' if days_left != 1 else ''} (deadline: {opportunity.deadline}).</p>"
+            f'<p><a href="{opportunity.url}">Apply here</a></p>'
+        )
+
+        sent = sender.send(
+            EmailMessage(
+                to=subscriber.email,
+                subject=f"Deadline reminder: {opportunity.title}"[:200],
+                html_body=html,
+                text_body=text,
+            )
+        )
+        if sent:
+            saved.reminder_sent_at = datetime.now(UTC)
+            stats["reminders_sent"] += 1
+
+    db.commit()
+    logger.info("Saved-opportunity deadline reminder run complete: %s", stats)
     return stats
