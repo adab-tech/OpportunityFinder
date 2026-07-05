@@ -94,6 +94,10 @@ class OpportunityScraper:
                 source_name=data.get("source_name"),
                 tags=data.get("tags"),
                 is_active=active,
+                # Open web-search discovery is a low-trust source — never
+                # auto-publish; a human must approve it in the admin
+                # moderation queue first (see routes/moderation.py).
+                review_status="pending",
             )
             self.db.add(opp)
             self.db.commit()

@@ -51,6 +51,15 @@ class Opportunity(Base):
     source_name = Column(String(200))
     tags = Column(String(500))           # comma-separated
     is_active = Column(Boolean, default=True)
+    # Moderation gate, independent of is_active (which tracks expiry).
+    # "approved" | "pending" | "rejected". Curated RSS feeds are a
+    # pre-vetted trust tier and auto-approve (see rss_ingest.py); open
+    # web-search discovery (Google/You.com/scrape, opportunity_scraper.py)
+    # is a much lower-trust tier and starts "pending" until a human
+    # reviews it in the admin moderation queue. A pending or rejected row
+    # must never appear in any public response — see _public_visible() in
+    # routes/opportunities.py.
+    review_status = Column(String(20), nullable=False, default="approved", index=True)
     scraped_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

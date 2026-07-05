@@ -19,6 +19,30 @@
     .admin-table td { padding: 6px 4px; border-bottom: 1px solid var(--border); }
     .admin-table td:last-child { text-align: right; color: var(--muted); }
     .key-form { display: flex; gap: 10px; }
+    .mod-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+    .mod-header .mod-count { font-size: .85rem; color: var(--muted); }
+    .mod-actions { display: flex; gap: 8px; }
+    .mod-list { display: flex; flex-direction: column; gap: 0; }
+    .mod-row { display: flex; gap: 14px; align-items: flex-start; padding: 14px 0; border-bottom: 1px solid var(--border-soft); }
+    .mod-row:last-child { border-bottom: none; }
+    .mod-row-main { flex: 1; min-width: 0; }
+    .mod-row-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+    .mod-row-title { font-family: var(--font-display); font-size: .95rem; font-weight: 600; color: var(--text); text-decoration: none; }
+    .mod-row-title:hover { text-decoration: underline; }
+    .mod-row-meta { font-size: .75rem; color: var(--muted); margin-bottom: 4px; }
+    .mod-row-desc { font-size: .82rem; color: var(--muted); }
+    .mod-row-actions { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: .7rem; font-weight: 600; }
+    .btn-approve, .btn-reject, .btn-secondary {
+      border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface);
+      cursor: pointer; font-size: .78rem; font-family: inherit; padding: 6px 12px; transition: all var(--ease);
+    }
+    .btn-approve { color: var(--grant); border-color: var(--grant-bg); }
+    .btn-approve:hover { background: var(--grant-bg); }
+    .btn-reject { color: #b91c1c; }
+    .btn-reject:hover { background: #fef2f2; }
+    .btn-secondary:hover { border-color: var(--text); color: var(--text); }
+    .mod-empty { color: var(--muted); font-size: .85rem; text-align: center; padding: 20px 0; }
   </style>
 </head>
 <body>
@@ -55,6 +79,23 @@
       </div>
     </div>
     <p id="errorMsg" style="color: #b91c1c; display:none;"></p>
+
+    <div id="modSection" style="display:none">
+      <div class="admin-card">
+        <div class="mod-header">
+          <h2 style="margin-bottom:0;">Moderation queue</h2>
+          <span class="mod-count" id="modCount">—</span>
+        </div>
+        <div class="mod-actions" style="margin-bottom: 14px;">
+          <button type="button" class="btn-secondary" id="modRefresh">Refresh</button>
+          <button type="button" class="btn-secondary" id="modApproveAll">Approve all visible</button>
+        </div>
+        <div class="mod-list" id="modList"></div>
+        <p class="mod-empty" id="modEmpty" style="display:none;">Queue is empty — nothing waiting for review.</p>
+        <div class="pagination" id="modPagination" style="display:none;"></div>
+        <p id="modError" style="color:#b91c1c; display:none; font-size:.85rem; margin-top:10px;"></p>
+      </div>
+    </div>
   </div>
 
   <script src="config.js"></script>

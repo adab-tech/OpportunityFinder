@@ -141,6 +141,38 @@ rejecting a real listing. Backfill for rows already live before this existed:
 `scripts/backfill_quality.py` (dry-run/`--apply`, same pattern as the other repair
 scripts). Regression tests: `tests/test_quality.py`, `tests/test_backfill_quality.py`.
 
+## Moderation gate — open web-search discovery is never auto-published
+
+Two trust tiers, enforced by `Opportunity.review_status` (`"approved" | "pending" | "rejected"`):
+
+1. **Curated RSS feeds** (`scrapers/rss_ingest.py`, a fixed vetted source list in
+   `app/ingest/rss_feeds.py`) — pre-vetted, so `_save()` sets `review_status="approved"`
+   explicitly and content keeps auto-publishing as before.
+2. **Open web-search discovery** (`scrapers/opportunity_scraper.py`, the
+   Google CSE/You.com/scrape pipeline) — low-trust by nature (see the You.com
+   `news`-pollution incident above): quality filtering alone isn't enough, a
+   human must approve each row before it's public. `_save()` sets
+   `review_status="pending"` on every insert; nothing here goes live automatically.
+
+`routes/opportunities.py::_public_visible()` filters `review_status == "approved"`
+on every public read (list, stats, single lookup) — same hard-requirement
+posture as the expiry check below: independent of `is_active`, applied
+everywhere, no exceptions.
+
+Admin review happens in `routes/moderation.py` (same `X-Admin-Key`/`ADMIN_API_KEY`
+gate as `routes/analytics.py`): `GET /admin/moderation/pending` (paginated,
+oldest first), `POST /{id}/approve`, `POST /{id}/reject` (also sets
+`is_active=False`, row kept for audit/dedup — never deleted), `POST /bulk-approve`
+with `{"ids": [...]}`. The admin UI lives in `frontend/admin.html` +
+`frontend/js/admin.js`, in its own always-shown `#modSection` (deliberately
+independent of the analytics section so one failing doesn't hide the other).
+
+Existing rows never disappear when this shipped: the migration's
+`DEFAULT 'approved'` backfills every pre-existing row automatically.
+Safety-net override tool: `scripts/backfill_review_status.py` (dry-run/`--apply`,
+`--set-approved`/`--set-pending` scoped by `--source`/`--type`). Regression
+tests: `tests/test_moderation.py`, `tests/test_backfill_review_status.py`.
+
 ## Expired opportunities must NEVER show — hard requirement, not best-effort
 
 An opportunity past its deadline showing on the site is a trust-breaking bug,

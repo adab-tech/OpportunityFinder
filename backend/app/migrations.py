@@ -26,6 +26,9 @@ _PENDING_COLUMNS: list[tuple[str, str, str]] = [
     ("opportunities", "deadline_at", "DATE"),
     ("opportunities", "title_normalized", "VARCHAR(600)"),
     ("saved_opportunities", "reminder_sent_at", "TIMESTAMP"),
+    # DEFAULT 'approved' means every row already live keeps showing —
+    # only new inserts from opportunity_scraper.py explicitly override it.
+    ("opportunities", "review_status", "VARCHAR(20) NOT NULL DEFAULT 'approved'"),
 ]
 
 

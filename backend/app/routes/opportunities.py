@@ -12,14 +12,20 @@ from app.schemas import OpportunityResponse, PaginatedOpportunities, StatsRespon
 router = APIRouter(prefix="/opportunities", tags=["Opportunities"])
 
 
-def _not_expired(query):
-    """A passed deadline must never be shown, full stop — this is a
-    query-level guarantee independent of whatever `is_active` happens to
-    say, so a stale flag (e.g. before a sweep job runs) can never let an
-    expired listing slip through.
+def _public_visible(query):
+    """The full public-visibility guarantee, applied everywhere a public
+    endpoint reads opportunities — independent of whatever `is_active`
+    happens to say, so a stale flag can never let something through:
+
+    1. A passed deadline must never be shown, full stop.
+    2. A row still awaiting (or denied) moderation must never be shown —
+       open web-search discovery starts "pending" until a human approves
+       it in the admin queue (see routes/moderation.py); only curated
+       RSS-feed content auto-approves.
     """
     return query.filter(
-        or_(Opportunity.deadline_at.is_(None), Opportunity.deadline_at >= date.today())
+        or_(Opportunity.deadline_at.is_(None), Opportunity.deadline_at >= date.today()),
+        Opportunity.review_status == "approved",
     )
 
 
@@ -34,7 +40,7 @@ def list_opportunities(
     sort: str = Query("newest", pattern="^(newest|closing)$"),
     db: Session = Depends(get_db),
 ):
-    q = _not_expired(db.query(Opportunity).filter(Opportunity.is_active.is_(True)))
+    q = _public_visible(db.query(Opportunity).filter(Opportunity.is_active.is_(True)))
 
     if opportunity_type:
         q = q.filter(Opportunity.opportunity_type == opportunity_type.lower())
@@ -85,7 +91,7 @@ def list_opportunities(
 @router.get("/stats", response_model=StatsResponse)
 def get_stats(db: Session = Depends(get_db)):
     counts = dict(
-        _not_expired(
+        _public_visible(
             db.query(Opportunity.opportunity_type, func.count(Opportunity.id)).filter(
                 Opportunity.is_active.is_(True)
             )
@@ -108,7 +114,7 @@ def get_stats(db: Session = Depends(get_db)):
 @router.get("/{opportunity_id}", response_model=OpportunityResponse)
 def get_opportunity(opportunity_id: int, db: Session = Depends(get_db)):
     opp = (
-        _not_expired(
+        _public_visible(
             db.query(Opportunity).filter(
                 Opportunity.id == opportunity_id, Opportunity.is_active.is_(True)
             )

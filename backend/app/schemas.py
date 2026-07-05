@@ -26,6 +26,7 @@ class OpportunityResponse(OpportunityBase):
 
     id: int
     is_active: bool
+    review_status: str
     scraped_at: datetime
 
 
@@ -96,3 +97,19 @@ class AnalyticsEventRequest(BaseModel):
     client_id: str = Field(min_length=1, max_length=64)
     value: str | None = Field(default=None, max_length=200)
     opportunity_id: int | None = None
+
+
+class ModerationActionResponse(BaseModel):
+    status: str
+    id: int
+    review_status: str
+
+
+class BulkModerationRequest(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=200)
+
+
+class BulkModerationResponse(BaseModel):
+    status: str
+    updated: int
+    ids: list[int]

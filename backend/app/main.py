@@ -12,7 +12,7 @@ from app.bootstrap import run_startup_tasks
 from app.config import settings
 from app.database import Base, engine
 from app.migrations import run_pending_column_migrations
-from app.routes import analytics, opportunities, scraper, subscribers
+from app.routes import analytics, moderation, opportunities, scraper, subscribers
 from app.scheduler import shutdown_scheduler, start_scheduler
 
 logging.basicConfig(
@@ -64,6 +64,7 @@ app.include_router(opportunities.router, prefix="/api/v1")
 app.include_router(scraper.router, prefix="/api/v1")
 app.include_router(subscribers.router, prefix="/api/v1")
 app.include_router(analytics.router, prefix="/api/v1")
+app.include_router(moderation.router, prefix="/api/v1")
 
 
 @app.get("/health", tags=["System"])

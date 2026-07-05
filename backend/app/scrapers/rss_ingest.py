@@ -106,6 +106,10 @@ class RssIngestor:
                     url=url[:2000],
                     source_name=data.get("source_name"),
                     is_active=active,
+                    # Curated RSS feeds are a pre-vetted trust tier —
+                    # explicit, not just relying on the column default, so
+                    # a future reader doesn't have to guess.
+                    review_status="approved",
                 )
             )
             self.db.commit()
