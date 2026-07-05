@@ -1,9 +1,10 @@
 """
-Google search wrapper.
+Web search wrapper for opportunity discovery.
 Priority order:
   1. Google Custom Search JSON API  (requires GOOGLE_API_KEY + GOOGLE_CSE_ID in .env)
-  2. googlesearch-python library     (scrapes public Google results, no key needed)
-  3. Direct fallback                 (raw HTTP to google.com, last resort)
+  2. You.com Search API             (requires YOU_API_KEY in .env)
+  3. googlesearch-python library     (scrapes public Google results, no key needed)
+  4. Direct fallback                 (raw HTTP to google.com, last resort)
 """
 
 import logging
@@ -59,6 +60,37 @@ class GoogleScraper:
             logger.warning(f"Google API search failed: {exc}")
             return []
 
+    def _search_via_you_com(self, query: str, num: int) -> list[str]:
+        """You.com Search API — a second official discovery source, tried
+        after Google's API (if configured) and before the unofficial
+        scraping fallback. Response shape per You.com's public Search API
+        docs (documentation.you.com): a JSON body with a "hits" array,
+        each hit carrying a "url". Parsed defensively — if You.com changes
+        this shape, we log the raw keys once rather than silently
+        returning nothing forever.
+        """
+        if not settings.YOU_API_KEY:
+            return []
+        try:
+            r = requests.get(
+                "https://api.ydc-index.io/search",
+                params={"query": query, "num_web_results": min(num, 20)},
+                headers={"X-API-Key": settings.YOU_API_KEY},
+                timeout=10,
+            )
+            r.raise_for_status()
+            body = r.json()
+
+            hits = body.get("hits") or body.get("results") or []
+            urls = [hit["url"] for hit in hits if isinstance(hit, dict) and hit.get("url")]
+            if hits and not urls:
+                sample_keys = list(hits[0].keys()) if hits else []
+                logger.warning("You.com response had no recognizable URL field: keys=%s", sample_keys)
+            return urls
+        except Exception as exc:
+            logger.warning(f"You.com API search failed: {exc}")
+            return []
+
     def _search_via_library(self, query: str, num: int) -> list[str]:
         """Use googlesearch-python (public Google scrape, polite)."""
         try:
@@ -104,9 +136,14 @@ class GoogleScraper:
 
     def search(self, query: str, num_results: int = 10) -> list[str]:
         """Return up to num_results URLs for the query, filtered for relevance."""
-        # Prefer API when configured
+        # Prefer official APIs, in order, when configured
         if settings.GOOGLE_API_KEY and settings.GOOGLE_CSE_ID:
             results = self._search_via_api(query, num_results)
+            if results:
+                return self._filter(results)
+
+        if settings.YOU_API_KEY:
+            results = self._search_via_you_com(query, num_results)
             if results:
                 return self._filter(results)
 

@@ -26,6 +26,8 @@ a static frontend on the same origin.
   - `scrapers/synopsis.py` — original one-line synopsis generator (rule-based, no LLM)
   - `scrapers/deadline_utils.py` — deadline text extraction + `parse_deadline_date` (structured date)
   - `scrapers/dedup.py` — `normalize_title` for cross-source duplicate detection (see below)
+  - `scrapers/google_scraper.py` — web search discovery, tiered: Google CSE API →
+    You.com Search API → googlesearch-python scrape → raw HTTP fallback (see below)
   - `migrations.py` — lightweight ALTER TABLE runner for columns added to existing tables (see below)
   - `routes/subscribers.py` — `/api/v1/saved`, `/api/v1/alerts` endpoints
   - `routes/analytics.py` — `/api/v1/analytics/event`, `/api/v1/analytics/summary`
@@ -82,6 +84,24 @@ further.
   structured-fields sentence is only a fallback for when no usable
   description text exists at all, and it never restates the deadline.
   Regression tests: `tests/test_synopsis.py`.
+
+## Web search discovery (Google CSE / You.com / scraping fallback)
+
+`GoogleScraper.search()` tries sources in order, using whichever is configured:
+
+1. **Google Custom Search JSON API** — `GOOGLE_API_KEY` + `GOOGLE_CSE_ID` (100 free/day)
+2. **You.com Search API** — `YOU_API_KEY` only, endpoint `api.ydc-index.io/search`,
+   header `X-API-Key`. Parses `hits` (or `results`) → `url` defensively, since the
+   exact response shape was implemented from public docs, not verified against a
+   live key — if it silently returns nothing once a real key is set, check
+   `logger.warning` output for "no recognizable URL field" and adjust the parsing
+   in `_search_via_you_com`.
+3. **googlesearch-python** (unofficial scrape, no key)
+4. **Direct HTTP to google.com** (last resort)
+
+All three unofficial/official tiers fail closed (return `[]` on any error) so a
+misconfigured or down API never crashes a scrape run — it just falls through to
+the next tier. Regression tests: `tests/test_google_scraper.py`.
 
 ## Self-hosted visitor analytics
 

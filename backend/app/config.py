@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     GOOGLE_API_KEY: str | None = None
     GOOGLE_CSE_ID: str | None = None
 
+    # You.com Search API (optional) — a second official discovery source,
+    # tried after Google's API (if configured) and before the unofficial
+    # scraping fallback. See app/scrapers/google_scraper.py.
+    YOU_API_KEY: str | None = None
+
     # Scraping behaviour
     SCRAPE_INTERVAL_HOURS: int = 6
     MAX_RESULTS_PER_QUERY: int = 10
