@@ -26,6 +26,9 @@ a static frontend on the same origin.
   - `scrapers/synopsis.py` — original one-line synopsis generator (rule-based, no LLM)
   - `scrapers/deadline_utils.py` — deadline text extraction + `parse_deadline_date` (structured date)
   - `scrapers/dedup.py` — `normalize_title` for cross-source duplicate detection (see below)
+  - `scrapers/expiry.py` — `is_expired` / `is_stale_by_title`: a passed deadline (or, absent
+    one, a stale year baked into the title) must never be shown (see below)
+  - `services/maintenance.py` — daily sweep deactivating opportunities that expire after ingest
   - `scrapers/google_scraper.py` — web search discovery, tiered: Google CSE API →
     You.com Search API → googlesearch-python scrape → raw HTTP fallback (see below)
   - `migrations.py` — lightweight ALTER TABLE runner for columns added to existing tables (see below)
@@ -102,6 +105,36 @@ further.
 All three unofficial/official tiers fail closed (return `[]` on any error) so a
 misconfigured or down API never crashes a scrape run — it just falls through to
 the next tier. Regression tests: `tests/test_google_scraper.py`.
+
+## Expired opportunities must NEVER show — hard requirement, not best-effort
+
+An opportunity past its deadline showing on the site is a trust-breaking bug,
+not a minor issue (explicit, emphatic user requirement, 2026-07-05). Three
+layers enforce this, deliberately redundant so no single gap lets one through:
+
+1. **Query-level guarantee** — `routes/opportunities.py`'s `_not_expired()`
+   filters every public read (`list`, `stats`, single-item lookup) on
+   `deadline_at IS NULL OR deadline_at >= today`. This is the real
+   guarantee — it holds even if `is_active` is stale for any reason.
+2. **Ingest-time check** — `scrapers/expiry.is_expired()` is called in every
+   `_save()` (RSS, scraper) before insert; a listing that's already expired
+   (past `deadline_at`, or no parseable deadline but a stale year in the
+   title, e.g. "...Recruitment 2019") is inserted with `is_active=False`
+   from the start, never `True`.
+3. **Daily sweep** — `services/maintenance.deactivate_expired_opportunities`
+   runs every 24h via the scheduler, keeping `is_active` accurate for rows
+   whose deadline passes *after* ingestion (so the alert digest and other
+   `is_active`-based consumers stay correct, not just the public listing).
+
+The title-year heuristic (`is_stale_by_title`) only fires on an *explicit*
+past year in the title — never on a yearless title (can't confirm, so it's
+left alone) — false negatives (a stale post slips through undetected) are
+far preferable to false positives (hiding something genuinely open).
+
+Backfill for rows already live before this existed:
+`scripts/backfill_expiry.py` (dry-run/`--apply`, same pattern as the other
+repair scripts). Regression tests: `tests/test_expiry.py`,
+`tests/test_expired_never_shown.py`, `tests/test_maintenance.py`.
 
 ## Self-hosted visitor analytics
 

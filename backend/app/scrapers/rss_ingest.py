@@ -12,6 +12,7 @@ from app.ingest.rss_feeds import RSS_FEEDS
 from app.models import Opportunity
 from app.scrapers.deadline_utils import extract_deadline, parse_deadline_date
 from app.scrapers.dedup import normalize_title
+from app.scrapers.expiry import is_expired
 from app.scrapers.keywords import detect_opportunity_type
 from app.scrapers.synopsis import build_synopsis
 from app.scrapers.url_utils import clean_url
@@ -80,6 +81,13 @@ class RssIngestor:
             self.stats["duplicates"] += 1
             return False
 
+        deadline_at = data.get("deadline_at")
+        # Never activate something that's already expired — a stale
+        # deadline or an old year baked into the title (e.g. a 2019
+        # recruitment post with no parseable deadline anywhere on the
+        # page) must not show, full stop.
+        active = not is_expired(deadline_at, title)
+
         try:
             self.db.add(
                 Opportunity(
@@ -91,10 +99,10 @@ class RssIngestor:
                     field=data.get("field"),
                     location=data.get("location"),
                     deadline=data.get("deadline"),
-                    deadline_at=data.get("deadline_at"),
+                    deadline_at=deadline_at,
                     url=url[:2000],
                     source_name=data.get("source_name"),
-                    is_active=True,
+                    is_active=active,
                 )
             )
             self.db.commit()

@@ -46,6 +46,44 @@ def test_rss_ingest_saves_new_entry():
         db.close()
 
 
+def _fake_feed_stale_year():
+    return SimpleNamespace(
+        bozo=False,
+        entries=[
+            SimpleNamespace(
+                title="Old Recruitment Program 2019",
+                link="https://example.org/stale-2019-program",
+                summary="A program from 2019 with no parseable deadline anywhere.",
+            )
+        ],
+    )
+
+
+def test_rss_ingest_never_activates_stale_title_year():
+    db = SessionLocal()
+    try:
+        url = "https://example.org/stale-2019-program"
+        db.query(Opportunity).filter(Opportunity.url == url).delete()
+        db.commit()
+
+        spec = {
+            "url": "https://example.org/stale-feed.xml",
+            "opportunity_type": "job",
+            "source_name": "Example",
+            "field": "STEM",
+            "location": "International",
+        }
+        with patch("app.scrapers.rss_ingest.feedparser.parse", return_value=_fake_feed_stale_year()):
+            with patch("app.scrapers.rss_ingest.RSS_FEEDS", [spec]):
+                RssIngestor(db).run(max_entries_per_feed=5)
+
+        row = db.query(Opportunity).filter(Opportunity.url == url).first()
+        assert row is not None
+        assert row.is_active is False
+    finally:
+        db.close()
+
+
 class TestPlainTextBlockBoundaries:
     def test_br_tags_become_sentence_breaks(self):
         # Real NSF RSS raw HTML: labels separated only by <br />, no

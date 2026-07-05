@@ -14,6 +14,7 @@ from app.models import Opportunity
 from app.scrapers.base_scraper import BaseScraper
 from app.scrapers.deadline_utils import parse_deadline_date
 from app.scrapers.dedup import normalize_title
+from app.scrapers.expiry import is_expired
 from app.scrapers.google_scraper import GoogleScraper
 from app.scrapers.keywords import OPPORTUNITY_SITES, build_google_queries
 from app.scrapers.rss_ingest import RssIngestor
@@ -69,6 +70,12 @@ class OpportunityScraper:
             self.stats["duplicates"] += 1
             return False
 
+        deadline_at = data.get("deadline_at")
+        # Never activate something that's already expired — a stale
+        # deadline or an old year baked into the title (common on scraped
+        # listing pages that are really old blog posts) must not show.
+        active = not is_expired(deadline_at, title)
+
         try:
             opp = Opportunity(
                 title=title[:500],
@@ -79,10 +86,11 @@ class OpportunityScraper:
                 field=data.get("field"),
                 location=data.get("location"),
                 deadline=data.get("deadline"),
-                deadline_at=data.get("deadline_at"),
+                deadline_at=deadline_at,
                 url=url[:2000],
                 source_name=data.get("source_name"),
                 tags=data.get("tags"),
+                is_active=active,
             )
             self.db.add(opp)
             self.db.commit()

@@ -1,4 +1,6 @@
 
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
@@ -8,6 +10,17 @@ from app.models import Opportunity
 from app.schemas import OpportunityResponse, PaginatedOpportunities, StatsResponse
 
 router = APIRouter(prefix="/opportunities", tags=["Opportunities"])
+
+
+def _not_expired(query):
+    """A passed deadline must never be shown, full stop — this is a
+    query-level guarantee independent of whatever `is_active` happens to
+    say, so a stale flag (e.g. before a sweep job runs) can never let an
+    expired listing slip through.
+    """
+    return query.filter(
+        or_(Opportunity.deadline_at.is_(None), Opportunity.deadline_at >= date.today())
+    )
 
 
 @router.get("/", response_model=PaginatedOpportunities)
@@ -20,7 +33,7 @@ def list_opportunities(
     search: str | None = Query(None),
     db: Session = Depends(get_db),
 ):
-    q = db.query(Opportunity).filter(Opportunity.is_active.is_(True))
+    q = _not_expired(db.query(Opportunity).filter(Opportunity.is_active.is_(True)))
 
     if opportunity_type:
         q = q.filter(Opportunity.opportunity_type == opportunity_type.lower())
@@ -63,8 +76,11 @@ def list_opportunities(
 @router.get("/stats", response_model=StatsResponse)
 def get_stats(db: Session = Depends(get_db)):
     counts = dict(
-        db.query(Opportunity.opportunity_type, func.count(Opportunity.id))
-        .filter(Opportunity.is_active.is_(True))
+        _not_expired(
+            db.query(Opportunity.opportunity_type, func.count(Opportunity.id)).filter(
+                Opportunity.is_active.is_(True)
+            )
+        )
         .group_by(Opportunity.opportunity_type)
         .all()
     )
@@ -83,8 +99,11 @@ def get_stats(db: Session = Depends(get_db)):
 @router.get("/{opportunity_id}", response_model=OpportunityResponse)
 def get_opportunity(opportunity_id: int, db: Session = Depends(get_db)):
     opp = (
-        db.query(Opportunity)
-        .filter(Opportunity.id == opportunity_id, Opportunity.is_active.is_(True))
+        _not_expired(
+            db.query(Opportunity).filter(
+                Opportunity.id == opportunity_id, Opportunity.is_active.is_(True)
+            )
+        )
         .first()
     )
     if not opp:
