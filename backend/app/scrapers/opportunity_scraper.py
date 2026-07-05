@@ -17,6 +17,7 @@ from app.scrapers.dedup import normalize_title
 from app.scrapers.expiry import is_expired
 from app.scrapers.google_scraper import GoogleScraper
 from app.scrapers.keywords import OPPORTUNITY_SITES, build_google_queries
+from app.scrapers.quality import is_low_quality_title
 from app.scrapers.rss_ingest import RssIngestor
 from app.scrapers.synopsis import build_synopsis
 from app.scrapers.url_utils import clean_url
@@ -61,6 +62,8 @@ class OpportunityScraper:
         url = clean_url(data.get("url"))
         title = (data.get("title") or "").strip()
         if not url or not title or len(title) < 5:
+            return False
+        if is_low_quality_title(title):
             return False
         if self._url_exists(url):
             return False

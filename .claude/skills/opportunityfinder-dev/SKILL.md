@@ -96,15 +96,50 @@ further.
 2. **You.com Web Search API** — `YOU_API_KEY` only. Endpoint `https://ydc-index.io/v1/search`
    (GET), header `X-API-Key`, param `count` (max 100). Response shape confirmed against
    You.com's real published docs (2026-07-05):
-   `{"results": {"web": [{"url": ...}], "news": [{"url": ...}]}}` — pulls URLs from
-   both `web` and `news`. **Pricing: $5.00/1,000 calls** (not free-tier like Google's
-   100/day — new accounts get $100 in credit, ~20k calls, but it's metered after that).
+   `{"results": {"web": [{"url": ...}], "news": [{"url": ...}]}}` — **`web` only,
+   `news` is deliberately dropped.** `news` was tried first and turned out to be the
+   dominant source of off-topic pollution (sports scores, local council stories, game
+   patch notes) — You.com's news classifier fires on generic words like "grant" and
+   "deadline" regardless of context. **Pricing: $5.00/1,000 calls** (not free-tier
+   like Google's 100/day — new accounts get $100 in credit, ~20k calls, but it's
+   metered after that).
 3. **googlesearch-python** (unofficial scrape, no key)
 4. **Direct HTTP to google.com** (last resort)
 
 All three unofficial/official tiers fail closed (return `[]` on any error) so a
 misconfigured or down API never crashes a scrape run — it just falls through to
 the next tier. Regression tests: `tests/test_google_scraper.py`.
+
+## Content-quality filtering (`scrapers/quality.py`)
+
+Broader web/You.com search discovery still surfaces junk even after the `news`-drop
+fix above: page-navigation chrome ("Breadcrumb", "Quick Links"), listicle/roundup
+articles ("50+ Scholarships for College Students"), past-tense "who already won"
+announcements, and off-topic content that slips through `web` results (sports
+trades, gaming patch notes, local politics, markets news) because a generic word
+in the story happens to match the search query.
+
+`is_low_quality_title()` is called in both `_save()` methods (`opportunity_scraper.py`,
+`rss_ingest.py`) before insert — a title that fails the check is never saved, no
+matter which discovery path found it.
+
+**Important design lesson (2026-07-05):** an earlier version of this filter also
+*required* the title to contain scholarship/grant/fellowship vocabulary to be
+accepted. That was wrong and cost far more than it saved — validated against the
+live dataset, it silently killed real, specific, well-known programs that just
+don't repeat that vocabulary in their title (Fulbright Foreign Student Program,
+Erasmus Mundus Joint Masters, NSF CAREER, Google Africa Applied AI Lab, named
+foundation grants, real job postings). Relevance for a scraped/searched title is
+already established by ingest context (a curated feed or a targeted search query),
+not by the title's own wording — don't reintroduce a positive-vocabulary gate.
+Off-topic content is instead caught by concrete negative signals (`_OFF_TOPIC_SIGNALS`)
+built from real examples, not a vocabulary whitelist.
+
+Biased toward false negatives over false positives, same principle as expiry
+detection above: letting a handful of low-value pages through is far better than
+rejecting a real listing. Backfill for rows already live before this existed:
+`scripts/backfill_quality.py` (dry-run/`--apply`, same pattern as the other repair
+scripts). Regression tests: `tests/test_quality.py`, `tests/test_backfill_quality.py`.
 
 ## Expired opportunities must NEVER show — hard requirement, not best-effort
 

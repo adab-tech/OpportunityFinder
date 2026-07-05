@@ -34,7 +34,11 @@ class TestYouComSearch:
         assert kwargs["headers"]["X-API-Key"] == "fake-key"
         assert kwargs["params"]["count"] == 10
 
-    def test_parses_news_results_too(self):
+    def test_news_results_are_ignored(self):
+        # Deliberate: news results were the dominant source of off-topic
+        # content (sports, local council stories) since You.com's news
+        # classifier fires on generic words like "grant" regardless of
+        # context. Only `web` should ever be used.
         scraper = GoogleScraper()
         mock_response = MagicMock()
         mock_response.json.return_value = {
@@ -50,7 +54,7 @@ class TestYouComSearch:
             with patch("app.scrapers.google_scraper.requests.get", return_value=mock_response):
                 urls = scraper._search_via_you_com("scholarship", 10)
 
-        assert urls == ["https://example.org/web-1", "https://example.org/news-1"]
+        assert urls == ["https://example.org/web-1"]
 
     def test_no_web_or_news_key_returns_empty(self):
         scraper = GoogleScraper()

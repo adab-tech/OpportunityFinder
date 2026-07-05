@@ -68,8 +68,15 @@ class GoogleScraper:
         Response shape (per You.com's published API docs):
             {"results": {"web": [{"url": ..., "title": ..., ...}, ...],
                          "news": [{"url": ..., ...}, ...]}}
-        We pull URLs from both `web` and `news` — a funding announcement
-        can legitimately surface as either.
+
+        Deliberately `web` only — `news` was tried first and turned out
+        to be the dominant source of completely off-topic results (sports
+        scores, local council stories, game patch notes). You.com's news
+        classifier fires on generic words like "grant" and "deadline"
+        regardless of context (a city council "granting" a permit, a
+        sports trade "deadline"), which are exactly the words our search
+        templates use. Evergreen program pages — what we actually want —
+        live in `web`, not the news wire.
         """
         if not settings.YOU_API_KEY:
             return []
@@ -83,12 +90,10 @@ class GoogleScraper:
             r.raise_for_status()
             body = r.json()
 
-            results = body.get("results") or {}
-            web = results.get("web") or []
-            news = results.get("news") or []
-            urls = [item["url"] for item in (web + news) if isinstance(item, dict) and item.get("url")]
-            if (web or news) and not urls:
-                logger.warning("You.com response had no recognizable URL field in web/news results")
+            web = (body.get("results") or {}).get("web") or []
+            urls = [item["url"] for item in web if isinstance(item, dict) and item.get("url")]
+            if web and not urls:
+                logger.warning("You.com response had no recognizable URL field in web results")
             return urls
         except Exception as exc:
             logger.warning(f"You.com API search failed: {exc}")
