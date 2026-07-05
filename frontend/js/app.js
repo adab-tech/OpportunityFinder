@@ -24,6 +24,7 @@ const state = {
   field: '',
   location: '',
   search: '',
+  sort: 'newest',
   totalPages: 1,
 };
 
@@ -134,6 +135,14 @@ function bindEvents() {
     fetchOpportunities();
   });
 
+  /* Sort */
+  $('sortSelect').addEventListener('change', e => {
+    state.sort = e.target.value;
+    state.page = 1;
+    trackEvent('sort', state.sort);
+    fetchOpportunities();
+  });
+
   /* Scrape triggers */
   scrapeBtn.addEventListener('click', triggerScrape);
   $('emptyBtn').addEventListener('click', triggerScrape);
@@ -156,8 +165,10 @@ function bindEvents() {
   $('closeSaveModal').addEventListener('click', () => { saveModal.style.display = 'none'; });
   $('saveForm').addEventListener('submit', onSaveSubmit);
 
-  /* Alerts modal */
+  /* Alerts modal (header button + sidebar CTA) */
   alertsBtn.addEventListener('click', () => { alertsModal.style.display = 'flex'; });
+  const sidebarAlerts = $('sidebarAlertsBtn');
+  if (sidebarAlerts) sidebarAlerts.addEventListener('click', () => { alertsModal.style.display = 'flex'; });
   $('closeAlertsModal').addEventListener('click', () => { alertsModal.style.display = 'none'; });
   $('alertsForm').addEventListener('submit', onAlertSubmit);
 }
@@ -222,7 +233,22 @@ async function fetchStats() {
     animateCount('stat-fellowship',   d.fellowships);
     animateCount('stat-grant',        d.grants);
     animateCount('stat-job',          d.jobs);
+    renderPageMeta(d);
   } catch (_) { /* backend not yet reachable */ }
+}
+
+/* Freshness line under the page title — a live product shows its pulse. */
+function renderPageMeta(stats) {
+  const el = $('pageMeta');
+  if (!el) return;
+  let updated = '';
+  if (stats.last_scraped) {
+    const mins = Math.max(0, Math.round((Date.now() - new Date(stats.last_scraped)) / 60000));
+    if (mins < 60)        updated = ` · updated ${mins <= 1 ? 'just now' : mins + ' minutes ago'}`;
+    else if (mins < 2880) updated = ` · updated ${Math.round(mins / 60)} hours ago`;
+    else                  updated = ` · updated ${Math.round(mins / 1440)} days ago`;
+  }
+  el.textContent = `${stats.total.toLocaleString()} open opportunities${updated} · expired listings never shown`;
 }
 
 async function fetchOpportunities() {
@@ -233,6 +259,7 @@ async function fetchOpportunities() {
   if (state.field)    params.set('field',    state.field);
   if (state.location) params.set('location', state.location);
   if (state.search)   params.set('search',   state.search);
+  if (state.sort && state.sort !== 'newest') params.set('sort', state.sort);
 
   try {
     const res = await fetch(`${API_BASE}/opportunities/?${params}`);
@@ -377,36 +404,38 @@ function cardHTML(opp) {
 
   const dl       = deadlineBadge(opp);
   const deadline = `<span class="tag ${dl.cls}">${esc(dl.text)}</span>`;
-  const field    = opp.field    ? `<span class="tag">${esc(opp.field)}</span>`    : '';
-  const location = opp.location ? `<span class="tag">${esc(opp.location)}</span>` : '';
   /* Prefer our own original synopsis over the raw scraped description,
      so people get a plain-English idea of the opportunity at a glance. */
   const bodyText = opp.summary || opp.description;
   const desc     = bodyText
-    ? `<p class="card-desc">${esc(bodyText.slice(0, 240))}</p>` : '';
+    ? `<p class="row-desc">${esc(bodyText.slice(0, 240))}</p>` : '';
   const added    = new Date(opp.scraped_at).toLocaleDateString('en-US',
     { month: 'short', day: 'numeric', year: 'numeric' });
+
+  const metaParts = [];
+  if (opp.source_name) metaParts.push(`via ${esc(opp.source_name)}`);
+  if (opp.field)       metaParts.push(esc(opp.field));
+  if (opp.location)    metaParts.push(esc(opp.location));
+  metaParts.push(`Added ${added}`);
 
   /* Defense in depth: never render a non-http(s) URL as a link */
   const safeUrl = /^https?:\/\//i.test(opp.url || '') ? opp.url : '#';
 
   return `
-    <article class="card">
-      <div class="card-accent accent-${type}"></div>
-      <div class="card-body">
-        <div class="card-top">
+    <article class="row">
+      <div class="row-main">
+        <div class="row-top">
           <span class="badge badge-${type}">${labels[type] || type}</span>
+          ${deadline}
         </div>
-        <h3 class="card-title">${esc(opp.title)}</h3>
-        ${opp.source_name ? `<p class="card-source">via ${esc(opp.source_name)}</p>` : ''}
+        <h3 class="row-title">${esc(opp.title)}</h3>
+        <p class="row-meta">${metaParts.join(' · ')}</p>
         ${desc}
-        <div class="card-tags">${field}${location}${deadline}</div>
       </div>
-      <div class="card-foot">
-        <span class="card-date">Added ${added}</span>
-        <button class="btn-save" data-id="${opp.id}" title="Save this opportunity">Save</button>
+      <div class="row-actions">
         <a href="${esc(safeUrl)}" target="_blank" rel="noopener noreferrer" data-id="${opp.id}"
            class="btn-apply apply-${type}">Apply →</a>
+        <button class="btn-save" data-id="${opp.id}" title="Save this opportunity">Save</button>
       </div>
     </article>`;
 }

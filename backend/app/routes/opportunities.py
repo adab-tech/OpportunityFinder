@@ -31,6 +31,7 @@ def list_opportunities(
     field: str | None = Query(None),
     location: str | None = Query(None),
     search: str | None = Query(None),
+    sort: str = Query("newest", pattern="^(newest|closing)$"),
     db: Session = Depends(get_db),
 ):
     q = _not_expired(db.query(Opportunity).filter(Opportunity.is_active.is_(True)))
@@ -57,8 +58,16 @@ def list_opportunities(
         )
 
     total = q.count()
+
+    # "closing" surfaces the deadlines about to pass first; rows with no
+    # parseable deadline sort last so a known date always beats an unknown.
+    if sort == "closing":
+        order = (Opportunity.deadline_at.asc().nulls_last(), Opportunity.scraped_at.desc())
+    else:
+        order = (Opportunity.scraped_at.desc(),)
+
     items = (
-        q.order_by(Opportunity.scraped_at.desc())
+        q.order_by(*order)
         .offset((page - 1) * per_page)
         .limit(per_page)
         .all()
