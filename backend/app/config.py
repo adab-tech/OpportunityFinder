@@ -59,10 +59,26 @@ class Settings(BaseSettings):
     SAVED_REMINDER_DAYS_BEFORE: int = 3
     SAVED_REMINDER_INTERVAL_HOURS: int = 24
 
-    # Self-hosted analytics — the summary endpoint requires this key
-    # (header X-Admin-Key) so visitor stats are never publicly readable.
-    # Unset by default: the endpoint refuses all requests until you set it.
-    ADMIN_API_KEY: str | None = None
+    # Admin login (analytics + moderation queue) — superseded the old
+    # shared X-Admin-Key header with a real email/password account and a
+    # signed session cookie (see app/security.py, app/routes/admin_auth.py).
+    # ADMIN_PASSWORD_HASH is generated once via
+    # `scripts/hash_admin_password.py` and pasted into the deployment's
+    # env vars — the plaintext password itself is never stored anywhere.
+    # All three must be set for admin login to work; unset means the
+    # admin endpoints refuse every request (fail closed, same posture as
+    # the old key check).
+    ADMIN_EMAIL: str | None = None
+    ADMIN_PASSWORD_HASH: str | None = None
+    # Signs the admin session cookie. Must be set explicitly in
+    # production — an unset/ephemeral key means every restart invalidates
+    # all sessions, which is a usability problem, not a security one, but
+    # still worth setting deliberately.
+    SESSION_SECRET_KEY: str | None = None
+    # The session cookie is Secure (HTTPS-only) by default, correct for
+    # the real deployment. Local dev over plain http:// needs this set
+    # to false or the browser silently refuses to store the cookie.
+    SESSION_COOKIE_SECURE: bool = True
 
     def cors_origin_list(self) -> list[str]:
         raw = (self.CORS_ORIGINS or "*").strip()

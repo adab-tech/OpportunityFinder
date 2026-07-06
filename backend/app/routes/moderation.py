@@ -8,17 +8,17 @@ here and explicitly approves or rejects each one before it can ever be
 shown publicly. Curated RSS feeds are a separate, pre-vetted trust tier
 and auto-approve (`rss_ingest.py`) — they never appear in this queue.
 
-Protected by the same `X-Admin-Key` header / `ADMIN_API_KEY` setting as
-`routes/analytics.py::summary` — unset by default, so this refuses ALL
-requests (503) until explicitly configured in the deployment environment.
+Protected by the same admin session cookie as `routes/analytics.py::summary`
+(see `routes/admin_auth.py::require_admin_session`) — unset config means
+this refuses ALL requests (503) until admin login is configured.
 """
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.config import settings
 from app.database import get_db
 from app.models import Opportunity
+from app.routes.admin_auth import require_admin_session
 from app.schemas import (
     BulkModerationRequest,
     BulkModerationResponse,
@@ -26,16 +26,9 @@ from app.schemas import (
     PaginatedOpportunities,
 )
 
-router = APIRouter(prefix="/admin/moderation", tags=["Moderation"])
-
-
-def _require_admin(x_admin_key: str | None) -> None:
-    if not settings.ADMIN_API_KEY:
-        raise HTTPException(
-            status_code=503, detail="Moderation is not configured (ADMIN_API_KEY unset)."
-        )
-    if not x_admin_key or x_admin_key != settings.ADMIN_API_KEY:
-        raise HTTPException(status_code=401, detail="Invalid or missing admin key.")
+router = APIRouter(
+    prefix="/admin/moderation", tags=["Moderation"], dependencies=[Depends(require_admin_session)]
+)
 
 
 def _get_pending_or_404(db: Session, opportunity_id: int) -> Opportunity:
@@ -49,11 +42,8 @@ def _get_pending_or_404(db: Session, opportunity_id: int) -> Opportunity:
 def list_pending(
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
-    x_admin_key: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ):
-    _require_admin(x_admin_key)
-
     q = db.query(Opportunity).filter(Opportunity.review_status == "pending")
     total = q.count()
     items = (
@@ -73,12 +63,7 @@ def list_pending(
 
 
 @router.post("/{opportunity_id}/approve", response_model=ModerationActionResponse)
-def approve(
-    opportunity_id: int,
-    x_admin_key: str | None = Header(default=None),
-    db: Session = Depends(get_db),
-):
-    _require_admin(x_admin_key)
+def approve(opportunity_id: int, db: Session = Depends(get_db)):
     opp = _get_pending_or_404(db, opportunity_id)
     opp.review_status = "approved"
     db.commit()
@@ -86,12 +71,7 @@ def approve(
 
 
 @router.post("/{opportunity_id}/reject", response_model=ModerationActionResponse)
-def reject(
-    opportunity_id: int,
-    x_admin_key: str | None = Header(default=None),
-    db: Session = Depends(get_db),
-):
-    _require_admin(x_admin_key)
+def reject(opportunity_id: int, db: Session = Depends(get_db)):
     opp = _get_pending_or_404(db, opportunity_id)
     opp.review_status = "rejected"
     opp.is_active = False
@@ -100,13 +80,7 @@ def reject(
 
 
 @router.post("/bulk-approve", response_model=BulkModerationResponse)
-def bulk_approve(
-    request: BulkModerationRequest,
-    x_admin_key: str | None = Header(default=None),
-    db: Session = Depends(get_db),
-):
-    _require_admin(x_admin_key)
-
+def bulk_approve(request: BulkModerationRequest, db: Session = Depends(get_db)):
     rows = db.query(Opportunity).filter(Opportunity.id.in_(request.ids)).all()
     updated_ids: list[int] = []
     for row in rows:

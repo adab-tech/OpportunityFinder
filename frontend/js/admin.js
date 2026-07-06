@@ -1,5 +1,10 @@
-/* Minimal admin analytics page. Key lives only in sessionStorage
-   (cleared when the tab closes) — never persisted to localStorage. */
+/* Admin login is a real email/password account (see
+   app/routes/admin_auth.py) — a signed, httpOnly session cookie handles
+   auth after login, so no key/token is ever stored in JS-readable
+   storage. `credentials: 'same-origin'` on every admin fetch ensures
+   that cookie is actually sent (fetch's default already does this for
+   same-origin requests, but being explicit avoids surprises if this
+   page is ever served from a different origin than the API). */
 const API_BASE = (() => {
   if (window.OPPORTUNITYFINDER_API_BASE) return window.OPPORTUNITYFINDER_API_BASE;
   if (window.location && window.location.origin && window.location.origin !== 'null') {
@@ -13,40 +18,80 @@ const $ = id => document.getElementById(id);
 let modPage = 1;
 const MOD_PER_PAGE = 20;
 
-document.addEventListener('DOMContentLoaded', () => {
-  const savedKey = sessionStorage.getItem('of_admin_key');
-  if (savedKey) {
-    $('keyInput').value = savedKey;
-    loadSummary(savedKey);
-    loadModerationQueue(savedKey);
+document.addEventListener('DOMContentLoaded', async () => {
+  const authenticated = await checkSession();
+  if (authenticated) {
+    showLoggedInUI();
   }
-  $('keyForm').addEventListener('submit', e => {
-    e.preventDefault();
-    const key = $('keyInput').value.trim();
-    if (!key) return;
-    sessionStorage.setItem('of_admin_key', key);
-    loadSummary(key);
-    modPage = 1;
-    loadModerationQueue(key);
-  });
 
-  $('modRefresh').addEventListener('click', () => {
-    const key = sessionStorage.getItem('of_admin_key');
-    if (key) loadModerationQueue(key);
-  });
-
-  $('modApproveAll').addEventListener('click', () => {
-    const key = sessionStorage.getItem('of_admin_key');
-    if (key) approveAllVisible(key);
-  });
+  $('keyForm').addEventListener('submit', onLoginSubmit);
+  $('logoutBtn').addEventListener('click', onLogout);
+  $('modRefresh').addEventListener('click', () => loadModerationQueue());
+  $('modApproveAll').addEventListener('click', approveAllVisible);
 });
 
-async function loadSummary(key) {
+async function checkSession() {
+  try {
+    const res = await fetch(`${API_BASE}/admin/session`, { credentials: 'same-origin' });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return !!data.authenticated;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function onLoginSubmit(e) {
+  e.preventDefault();
+  $('loginError').style.display = 'none';
+  const email = $('emailInput').value.trim();
+  const password = $('passwordInput').value;
+  if (!email || !password) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/admin/login`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      $('loginError').textContent = body.detail || `Login failed (${res.status})`;
+      $('loginError').style.display = 'block';
+      return;
+    }
+    $('passwordInput').value = '';
+    showLoggedInUI();
+  } catch (_) {
+    $('loginError').textContent = 'Cannot connect to the API.';
+    $('loginError').style.display = 'block';
+  }
+}
+
+async function onLogout() {
+  try {
+    await fetch(`${API_BASE}/admin/logout`, { method: 'POST', credentials: 'same-origin' });
+  } catch (_) { /* best effort — hide the UI regardless */ }
+  document.getElementById('keyForm').closest('.admin-card').style.display = 'block';
+  $('loggedInBar').style.display = 'none';
+  $('results').style.display = 'none';
+  $('modSection').style.display = 'none';
+  $('errorMsg').style.display = 'none';
+}
+
+function showLoggedInUI() {
+  document.getElementById('keyForm').closest('.admin-card').style.display = 'none';
+  $('loggedInBar').style.display = 'block';
+  loadSummary();
+  modPage = 1;
+  loadModerationQueue();
+}
+
+async function loadSummary() {
   $('errorMsg').style.display = 'none';
   try {
-    const res = await fetch(`${API_BASE}/analytics/summary?days=7`, {
-      headers: { 'X-Admin-Key': key },
-    });
+    const res = await fetch(`${API_BASE}/analytics/summary?days=7`, { credentials: 'same-origin' });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       showError(body.detail || `Request failed (${res.status})`);
@@ -100,13 +145,13 @@ function esc(str) {
 
 let modItems = [];
 
-async function loadModerationQueue(key) {
+async function loadModerationQueue() {
   $('modSection').style.display = 'block';
   $('modError').style.display = 'none';
   try {
     const res = await fetch(
       `${API_BASE}/admin/moderation/pending?page=${modPage}&per_page=${MOD_PER_PAGE}`,
-      { headers: { 'X-Admin-Key': key } }
+      { credentials: 'same-origin' }
     );
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
@@ -161,11 +206,10 @@ function renderModPagination(data) {
     <span class="page-btn" style="cursor:default;">${data.page} / ${totalPages}</span>
     <button type="button" class="page-btn" id="modNext" ${data.page >= totalPages ? 'disabled' : ''}>Next</button>
   `;
-  const key = sessionStorage.getItem('of_admin_key');
   const prevBtn = $('modPrev');
   const nextBtn = $('modNext');
-  if (prevBtn) prevBtn.addEventListener('click', () => { modPage = Math.max(1, modPage - 1); loadModerationQueue(key); });
-  if (nextBtn) nextBtn.addEventListener('click', () => { modPage += 1; loadModerationQueue(key); });
+  if (prevBtn) prevBtn.addEventListener('click', () => { modPage = Math.max(1, modPage - 1); loadModerationQueue(); });
+  if (nextBtn) nextBtn.addEventListener('click', () => { modPage += 1; loadModerationQueue(); });
 }
 
 function modRowHTML(item) {
@@ -204,12 +248,10 @@ function modRowHTML(item) {
 }
 
 async function approveItem(id) {
-  const key = sessionStorage.getItem('of_admin_key');
-  if (!key) return;
   try {
     const res = await fetch(`${API_BASE}/admin/moderation/${id}/approve`, {
       method: 'POST',
-      headers: { 'X-Admin-Key': key },
+      credentials: 'same-origin',
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
@@ -223,12 +265,10 @@ async function approveItem(id) {
 }
 
 async function rejectItem(id) {
-  const key = sessionStorage.getItem('of_admin_key');
-  if (!key) return;
   try {
     const res = await fetch(`${API_BASE}/admin/moderation/${id}/reject`, {
       method: 'POST',
-      headers: { 'X-Admin-Key': key },
+      credentials: 'same-origin',
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
@@ -241,13 +281,14 @@ async function rejectItem(id) {
   }
 }
 
-async function approveAllVisible(key) {
+async function approveAllVisible() {
   if (!modItems.length) return;
   const ids = modItems.map(i => i.id);
   try {
     const res = await fetch(`${API_BASE}/admin/moderation/bulk-approve`, {
       method: 'POST',
-      headers: { 'X-Admin-Key': key, 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ids }),
     });
     if (!res.ok) {

@@ -89,21 +89,25 @@ class TestAnalyticsRoutes:
         )
         assert response.status_code == 204
 
-    def test_summary_requires_admin_key_when_unconfigured(self):
+    def test_summary_requires_session_when_unconfigured(self):
         response = client.get("/api/v1/analytics/summary")
         assert response.status_code == 503
 
-    def test_summary_rejects_wrong_key_when_configured(self, monkeypatch):
+    def test_summary_rejects_missing_session_when_configured(self, monkeypatch):
         from app.config import settings
 
-        monkeypatch.setattr(settings, "ADMIN_API_KEY", "correct-key")
-        response = client.get("/api/v1/analytics/summary", headers={"X-Admin-Key": "wrong-key"})
+        monkeypatch.setattr(settings, "SESSION_SECRET_KEY", "test-secret")
+        response = client.get("/api/v1/analytics/summary")
         assert response.status_code == 401
 
-    def test_summary_succeeds_with_correct_key(self, monkeypatch):
+    def test_summary_succeeds_with_valid_session(self, monkeypatch):
         from app.config import settings
+        from app.security import create_session_token
 
-        monkeypatch.setattr(settings, "ADMIN_API_KEY", "correct-key")
-        response = client.get("/api/v1/analytics/summary", headers={"X-Admin-Key": "correct-key"})
+        monkeypatch.setattr(settings, "SESSION_SECRET_KEY", "test-secret")
+        token = create_session_token("test-secret")
+        response = client.get(
+            "/api/v1/analytics/summary", cookies={"of_admin_session": token}
+        )
         assert response.status_code == 200
         assert "total_events" in response.json()

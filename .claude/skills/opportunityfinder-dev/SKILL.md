@@ -35,8 +35,9 @@ a static frontend on the same origin.
   - `routes/subscribers.py` — `/api/v1/saved`, `/api/v1/alerts` endpoints
   - `routes/analytics.py` — `/api/v1/analytics/event`, `/api/v1/analytics/summary`
 - **Frontend:** static vanilla JS in `frontend/` (no build step), served by the API.
-  `admin.html` + `js/admin.js` is a separate, unlisted (linked only from the footer) page for
-  viewing analytics — protected by `ADMIN_API_KEY`, not by site navigation.
+  `admin.html` + `js/admin.js` is a separate, unlisted (not linked from the public site) page
+  for the analytics summary and moderation queue — protected by a real admin login
+  (email + password, see below), not by site navigation.
 - **DB:** SQLite locally, Postgres in production via `DATABASE_URL`
 
 ## Schema migrations (no Alembic — by design, for now)
@@ -159,8 +160,8 @@ on every public read (list, stats, single lookup) — same hard-requirement
 posture as the expiry check below: independent of `is_active`, applied
 everywhere, no exceptions.
 
-Admin review happens in `routes/moderation.py` (same `X-Admin-Key`/`ADMIN_API_KEY`
-gate as `routes/analytics.py`): `GET /admin/moderation/pending` (paginated,
+Admin review happens in `routes/moderation.py` (same admin session-cookie
+gate as `routes/analytics.py` — see "Admin login" below): `GET /admin/moderation/pending` (paginated,
 oldest first), `POST /{id}/approve`, `POST /{id}/reject` (also sets
 `is_active=False`, row kept for audit/dedup — never deleted), `POST /bulk-approve`
 with `{"ids": [...]}`. The admin UI lives in `frontend/admin.html` +
@@ -203,24 +204,57 @@ Backfill for rows already live before this existed:
 repair scripts). Regression tests: `tests/test_expiry.py`,
 `tests/test_expired_never_shown.py`, `tests/test_maintenance.py`.
 
+## Admin login (real email/password, replaced the shared key — 2026-07-05)
+
+`admin.html` used to be gated by a single shared secret pasted into a
+password box (`X-Admin-Key` / `ADMIN_API_KEY`). That's gone — admin auth
+is now a real account: `ADMIN_EMAIL` + `ADMIN_PASSWORD_HASH` (env vars),
+checked at `POST /api/v1/admin/login` (`routes/admin_auth.py`), which sets
+a signed, httpOnly, `SameSite=Strict` session cookie (`of_admin_session`,
+12h expiry) on success. `GET /api/v1/admin/session` lets the page silently
+check "am I still logged in" on load; `POST /api/v1/admin/logout` clears
+the cookie.
+
+- **Password hashing:** PBKDF2-HMAC-SHA256, 600k iterations, stdlib-only
+  (`app/security.py`, no new dependency) — never store the plaintext
+  password anywhere. Generate `ADMIN_PASSWORD_HASH` once with
+  `scripts/hash_admin_password.py` (prompts for the password, prints only
+  the hash) and paste it into Render's env vars alongside `ADMIN_EMAIL`
+  and a random `SESSION_SECRET_KEY` (`secrets.token_hex(32)`).
+- **Session tokens** are a simple `<expiry>.<hmac>` string signed with
+  `SESSION_SECRET_KEY` — not a JWT, deliberately, since there's exactly
+  one claim ("an admin is logged in until this timestamp") and a full JWT
+  library would be unused complexity for a single-admin account.
+- **Fails closed**: any of `ADMIN_EMAIL`/`ADMIN_PASSWORD_HASH`/
+  `SESSION_SECRET_KEY` unset means `/login` returns 503 and every
+  protected endpoint (`analytics.summary`, all of `routes/moderation.py`)
+  refuses every request via the shared `require_admin_session` dependency.
+- **Single admin by design** — this project has one operator today. A real
+  accounts table with roles is a reasonable future upgrade if/when there's
+  a team, not before (explicit user decision, 2026-07-05).
+- `SESSION_COOKIE_SECURE` (default `true`) must be set to `false` for local
+  http:// dev — browsers silently refuse to store a `Secure` cookie over
+  plain HTTP.
+
 ## Self-hosted visitor analytics
 
 No third-party tracker, no cookies, no IP storage at the app layer — a
 random `client_id` (crypto.randomUUID, generated client-side, stored in
 localStorage) distinguishes repeat browsers from new ones in aggregate
-counts only.
+counts only. (This is the *visitor-facing* analytics identifier — unrelated
+to the admin session cookie above, which identifies the one operator, not
+site visitors.)
 
 - `POST /api/v1/analytics/event` is public and never errors visibly to the
   browser — tracking must never break real usage. Fired from `app.js` on
   pageview, search, each filter type, save/apply clicks, and alert creation.
-- `GET /api/v1/analytics/summary` requires header `X-Admin-Key` matching
-  `settings.ADMIN_API_KEY`. **Unset by default — refuses ALL requests (503)
-  until you configure it.** Set it in Render's environment to actually use
-  `admin.html`.
+- `GET /api/v1/analytics/summary` requires a valid admin session (see
+  "Admin login" above). **Unset config — refuses ALL requests (503) until
+  you configure it.**
 - **`admin.html` is intentionally not linked from the public site** (no
   footer link, no nav entry) — this is serious software, not a hobby
   project, and a visible "Admin" link undercuts that. Reach it by typing
-  the URL directly; it's still protected by `ADMIN_API_KEY` either way.
+  the URL directly; it's still protected by admin login either way.
 
 ## Cross-source duplicate detection
 

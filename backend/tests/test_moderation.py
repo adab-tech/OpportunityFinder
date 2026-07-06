@@ -111,35 +111,33 @@ class TestModerationAdminGate:
         _cleanup(self.db)
         self.db.close()
 
-    def test_pending_list_requires_admin_key_when_unconfigured(self):
+    def test_pending_list_requires_session_when_unconfigured(self):
         response = client.get("/api/v1/admin/moderation/pending")
         assert response.status_code == 503
 
-    def test_pending_list_rejects_wrong_key(self, monkeypatch):
+    def test_pending_list_rejects_missing_session(self, monkeypatch):
         from app.config import settings
 
-        monkeypatch.setattr(settings, "ADMIN_API_KEY", "correct-key")
-        response = client.get(
-            "/api/v1/admin/moderation/pending", headers={"X-Admin-Key": "wrong-key"}
-        )
+        monkeypatch.setattr(settings, "SESSION_SECRET_KEY", "correct-secret")
+        response = client.get("/api/v1/admin/moderation/pending")
         assert response.status_code == 401
 
-    def test_approve_requires_admin_key(self, monkeypatch):
+    def test_approve_requires_session(self, monkeypatch):
         from app.config import settings
 
-        monkeypatch.setattr(settings, "ADMIN_API_KEY", "correct-key")
+        monkeypatch.setattr(settings, "SESSION_SECRET_KEY", "correct-secret")
         opp = _make_pending(self.db, "gate-approve")
         response = client.post(f"/api/v1/admin/moderation/{opp.id}/approve")
-        assert response.status_code == 401  # ADMIN_API_KEY configured but header missing -> unauthorized
+        assert response.status_code == 401  # session configured but cookie missing -> unauthorized
 
-    def test_bulk_approve_requires_admin_key(self, monkeypatch):
+    def test_bulk_approve_rejects_invalid_session(self, monkeypatch):
         from app.config import settings
 
-        monkeypatch.setattr(settings, "ADMIN_API_KEY", "correct-key")
+        monkeypatch.setattr(settings, "SESSION_SECRET_KEY", "correct-secret")
         response = client.post(
             "/api/v1/admin/moderation/bulk-approve",
             json={"ids": [1]},
-            headers={"X-Admin-Key": "wrong-key"},
+            cookies={"of_admin_session": "garbage-not-a-valid-token"},
         )
         assert response.status_code == 401
 
@@ -173,26 +171,28 @@ class TestPendingNeverPublic:
 
 class TestModerationActions:
     def setup_method(self):
+        from app.config import settings
+        from app.security import create_session_token
+
         self.db = SessionLocal()
         _cleanup(self.db)
-        from app.config import settings
-
-        self._prior_key = settings.ADMIN_API_KEY
-        settings.ADMIN_API_KEY = "test-admin-key"
+        self._prior_secret = settings.SESSION_SECRET_KEY
+        settings.SESSION_SECRET_KEY = "test-secret"
+        self._token = create_session_token("test-secret")
 
     def teardown_method(self):
         from app.config import settings
 
-        settings.ADMIN_API_KEY = self._prior_key
+        settings.SESSION_SECRET_KEY = self._prior_secret
         _cleanup(self.db)
         self.db.close()
 
-    def _headers(self):
-        return {"X-Admin-Key": "test-admin-key"}
+    def _cookies(self):
+        return {"of_admin_session": self._token}
 
     def test_pending_list_returns_pending_rows(self):
         opp = _make_pending(self.db, "listed")
-        response = client.get("/api/v1/admin/moderation/pending", headers=self._headers())
+        response = client.get("/api/v1/admin/moderation/pending", cookies=self._cookies())
         assert response.status_code == 200
         body = response.json()
         ids = [row["id"] for row in body["data"]]
@@ -201,7 +201,7 @@ class TestModerationActions:
     def test_approve_transitions_status_and_makes_publicly_visible(self):
         opp = _make_pending(self.db, "approve-me")
         response = client.post(
-            f"/api/v1/admin/moderation/{opp.id}/approve", headers=self._headers()
+            f"/api/v1/admin/moderation/{opp.id}/approve", cookies=self._cookies()
         )
         assert response.status_code == 200
         assert response.json()["review_status"] == "approved"
@@ -212,7 +212,7 @@ class TestModerationActions:
     def test_reject_transitions_status_and_deactivates(self):
         opp = _make_pending(self.db, "reject-me")
         response = client.post(
-            f"/api/v1/admin/moderation/{opp.id}/reject", headers=self._headers()
+            f"/api/v1/admin/moderation/{opp.id}/reject", cookies=self._cookies()
         )
         assert response.status_code == 200
         assert response.json()["review_status"] == "rejected"
@@ -225,7 +225,7 @@ class TestModerationActions:
 
     def test_approve_unknown_id_returns_404(self):
         response = client.post(
-            "/api/v1/admin/moderation/999999999/approve", headers=self._headers()
+            "/api/v1/admin/moderation/999999999/approve", cookies=self._cookies()
         )
         assert response.status_code == 404
 
@@ -235,7 +235,7 @@ class TestModerationActions:
         response = client.post(
             "/api/v1/admin/moderation/bulk-approve",
             json={"ids": [opp1.id, opp2.id]},
-            headers=self._headers(),
+            cookies=self._cookies(),
         )
         assert response.status_code == 200
         body = response.json()
@@ -252,7 +252,7 @@ class TestModerationActions:
         response = client.post(
             "/api/v1/admin/moderation/bulk-approve",
             json={"ids": [opp.id, 999999999]},
-            headers=self._headers(),
+            cookies=self._cookies(),
         )
         assert response.status_code == 200
         assert response.json()["updated"] == 1
