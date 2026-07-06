@@ -113,3 +113,22 @@ class BulkModerationResponse(BaseModel):
     status: str
     updated: int
     ids: list[int]
+
+
+class AdminOpportunityUpdate(BaseModel):
+    """Partial update for the admin listing-management table — every
+    field optional, only the ones the admin actually changed are sent.
+    """
+
+    title: str | None = None
+    description: str | None = None
+    summary: str | None = None
+    opportunity_type: str | None = None
+    field: str | None = None
+    location: str | None = None
+    deadline: str | None = None
+    deadline_at: date | None = None
+    url: str | None = None
+    source_name: str | None = None
+    tags: str | None = None
+    is_active: bool | None = None

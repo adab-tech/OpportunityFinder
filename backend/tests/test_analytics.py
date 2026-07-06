@@ -69,6 +69,37 @@ class TestGetSummary:
         assert "scholarship" in values
 
 
+class TestGetDailyTrends:
+    def setup_method(self):
+        self.db = SessionLocal()
+        _cleanup(self.db)
+        svc.record_event(self.db, "pageview", _TEST_CLIENT_ID)
+        svc.record_event(self.db, "search", _TEST_CLIENT_ID, value="grant")
+        svc.record_event(self.db, "apply_click", _TEST_CLIENT_ID)
+
+    def teardown_method(self):
+        _cleanup(self.db)
+        self.db.close()
+
+    def test_returns_one_row_per_day(self):
+        trend = svc.get_daily_trends(self.db, days=30)
+        assert len(trend) == 30
+
+    def test_today_reflects_recorded_events(self):
+        trend = svc.get_daily_trends(self.db, days=30)
+        today = trend[-1]
+        assert today["pageviews"] >= 1
+        assert today["searches"] >= 1
+        assert today["applies"] >= 1
+
+    def test_days_with_no_events_are_zero_not_missing(self):
+        trend = svc.get_daily_trends(self.db, days=30)
+        # Every entry must have all three keys, even if the count is 0 —
+        # the chart can't have gaps.
+        for entry in trend:
+            assert set(entry.keys()) == {"date", "pageviews", "searches", "applies"}
+
+
 class TestAnalyticsRoutes:
     def teardown_method(self):
         db = SessionLocal()
@@ -111,3 +142,21 @@ class TestAnalyticsRoutes:
         )
         assert response.status_code == 200
         assert "total_events" in response.json()
+
+    def test_trends_requires_session_when_unconfigured(self):
+        response = client.get("/api/v1/analytics/trends")
+        assert response.status_code == 503
+
+    def test_trends_succeeds_with_valid_session(self, monkeypatch):
+        from app.config import settings
+        from app.security import create_session_token
+
+        monkeypatch.setattr(settings, "SESSION_SECRET_KEY", "test-secret")
+        token = create_session_token("test-secret")
+        response = client.get(
+            "/api/v1/analytics/trends?days=30", cookies={"of_admin_session": token}
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["days"] == 30
+        assert len(body["data"]) == 30

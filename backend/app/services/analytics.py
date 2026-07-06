@@ -62,6 +62,51 @@ def _top_values(db: Session, event_type: str, since: datetime, limit: int = 10) 
     return [{"value": value, "count": count} for value, count in rows]
 
 
+def get_daily_trends(db: Session, days: int = 30) -> list[dict]:
+    """Per-day counts for the admin trends chart — pageviews, searches,
+    and apply-clicks over time, so the admin can see growth rather than
+    a single fixed-window snapshot (see get_summary). Missing days (no
+    events at all) are filled with zeros so the chart has no gaps.
+
+    func.date() works identically on SQLite and Postgres (both truncate
+    a timestamp to its date), so this needs no dialect-specific SQL.
+    """
+    since = (datetime.now(UTC) - timedelta(days=days - 1)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+
+    rows = (
+        db.query(
+            func.date(AnalyticsEvent.created_at).label("day"),
+            AnalyticsEvent.event_type,
+            func.count(AnalyticsEvent.id),
+        )
+        .filter(AnalyticsEvent.created_at >= since)
+        .group_by("day", AnalyticsEvent.event_type)
+        .all()
+    )
+
+    by_day: dict[str, dict[str, int]] = {}
+    for day, event_type, count in rows:
+        day_str = str(day)  # SQLite returns str already; Postgres returns a date object
+        by_day.setdefault(day_str, {})[event_type] = count
+
+    trend = []
+    for i in range(days):
+        day = (since + timedelta(days=i)).date()
+        day_str = day.isoformat()
+        counts = by_day.get(day_str, {})
+        trend.append(
+            {
+                "date": day_str,
+                "pageviews": counts.get("pageview", 0),
+                "searches": counts.get("search", 0),
+                "applies": counts.get("apply_click", 0),
+            }
+        )
+    return trend
+
+
 def get_summary(db: Session, days: int = 7) -> dict:
     since = datetime.now(UTC) - timedelta(days=days)
 

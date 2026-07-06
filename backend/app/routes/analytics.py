@@ -28,3 +28,11 @@ def summary(
     db: Session = Depends(get_db),
 ):
     return svc.get_summary(db, days=days)
+
+
+@router.get("/trends", dependencies=[Depends(require_admin_session)])
+def trends(
+    days: int = Query(default=30, ge=7, le=90),
+    db: Session = Depends(get_db),
+):
+    return {"days": days, "data": svc.get_daily_trends(db, days=days)}

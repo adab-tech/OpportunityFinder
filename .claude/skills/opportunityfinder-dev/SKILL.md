@@ -251,10 +251,40 @@ site visitors.)
 - `GET /api/v1/analytics/summary` requires a valid admin session (see
   "Admin login" above). **Unset config — refuses ALL requests (503) until
   you configure it.**
+- `GET /api/v1/analytics/trends?days=7|30|90` (same auth) returns daily
+  pageview/search/apply-click counts for the admin trends chart
+  (`services/analytics.get_daily_trends`) — missing days are filled with
+  zeros so the chart has no gaps. Rendered as a hand-rolled SVG line
+  chart in `admin.js` (`renderTrendsChart`) — no charting library, same
+  minimal-dependency posture as the rest of this frontend.
 - **`admin.html` is intentionally not linked from the public site** (no
   footer link, no nav entry) — this is serious software, not a hobby
   project, and a visible "Admin" link undercuts that. Reach it by typing
   the URL directly; it's still protected by admin login either way.
+
+## Admin listing management (`routes/admin_listings.py`)
+
+Unlike `routes/moderation.py` (only the pending-review queue),
+`/api/v1/admin/opportunities/` exposes and lets you edit **every**
+opportunity regardless of `is_active`/`review_status` — once something
+is live, an admin can still correct a field or pull it down.
+
+- `GET /admin/opportunities/?search=&opportunity_type=&page=&per_page=` —
+  deliberately unfiltered (unlike the public listing's `_public_visible`),
+  since an admin needs to see everything to fix it.
+- `PATCH /admin/opportunities/{id}` — partial update
+  (`AdminOpportunityUpdate` schema, all fields optional); if `title`
+  changes, `title_normalized` is recomputed too so a corrected title
+  still matches future reposts of the same opportunity from another
+  aggregator (see "Cross-source duplicate detection" below).
+- `POST /admin/opportunities/{id}/deactivate` / `/reactivate` — quick
+  toggle, doesn't require opening the full edit form.
+- Frontend: "All listings" section in `admin.html`/`admin.js` — search +
+  type filter, paginated table, Edit opens a modal
+  (`openEditModal`/`onEditSubmit`), Deactivate/Reactivate is one click.
+  Same admin session gate as everything else on this page.
+
+Regression tests: `tests/test_admin_listings.py`.
 
 ## Cross-source duplicate detection
 

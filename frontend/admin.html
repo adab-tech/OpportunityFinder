@@ -7,9 +7,9 @@
   <meta name="robots" content="noindex, nofollow" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
   <!-- ?v= bumped on each release so returning admins get fresh assets, not stale caches -->
-  <link rel="stylesheet" href="css/style.css?v=2" />
+  <link rel="stylesheet" href="css/style.css?v=3" />
   <style>
-    .admin-wrap { max-width: 720px; margin: 40px auto; padding: 0 24px; }
+    .admin-wrap { max-width: 960px; margin: 40px auto; padding: 0 24px; }
     .admin-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; box-shadow: var(--shadow); margin-bottom: 20px; }
     .admin-card h2 { font-size: 1.05rem; margin-bottom: 14px; }
     .admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; margin-bottom: 8px; }
@@ -44,6 +44,39 @@
     .btn-reject:hover { background: #fef2f2; }
     .btn-secondary:hover { border-color: var(--text); color: var(--text); }
     .mod-empty { color: var(--muted); font-size: .85rem; text-align: center; padding: 20px 0; }
+
+    /* Trends chart */
+    .trends-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+    .trends-legend { display: flex; gap: 14px; font-size: .78rem; color: var(--muted); flex-wrap: wrap; }
+    .trends-legend span { display: inline-flex; align-items: center; gap: 5px; }
+    .trends-legend .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .trends-range select { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); padding: 5px 10px; font-size: .8rem; font-family: inherit; cursor: pointer; }
+
+    /* Listings management */
+    .listings-toolbar { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+    .listings-toolbar input, .listings-toolbar select { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; font-size: .84rem; font-family: inherit; }
+    .listings-toolbar input { flex: 1; min-width: 180px; }
+    .listing-row { display: flex; gap: 14px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--border-soft); }
+    .listing-row:last-child { border-bottom: none; }
+    .listing-row-main { flex: 1; min-width: 0; }
+    .listing-row-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+    .listing-row-title { font-family: var(--font-display); font-size: .92rem; font-weight: 600; color: var(--text); }
+    .listing-row-meta { font-size: .74rem; color: var(--muted); }
+    .badge-inactive { background: #f3f4f6; color: #6b7280; }
+    .badge-pending { background: #fffbeb; color: #b45309; }
+    .badge-rejected { background: #fef2f2; color: #b91c1c; }
+    .listing-row-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .btn-edit { color: var(--accent, #4f46e5); }
+    .btn-edit:hover { background: var(--accent-soft, #eef2ff); }
+    .edit-modal-box { max-width: 560px; text-align: left; max-height: 84vh; overflow-y: auto; }
+    .edit-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .edit-form-grid label { font-size: .74rem; color: var(--muted); display: block; margin-bottom: 4px; }
+    .edit-form-grid input, .edit-form-grid textarea, .edit-form-grid select {
+      width: 100%; border: 1px solid var(--border); border-radius: var(--radius-sm);
+      padding: 7px 9px; font-size: .84rem; font-family: inherit;
+    }
+    .edit-form-grid .full-width { grid-column: 1 / -1; }
+    .edit-form-grid textarea { resize: vertical; min-height: 60px; }
   </style>
 </head>
 <body>
@@ -66,6 +99,24 @@
     </div>
 
     <div id="results" style="display:none">
+      <div class="admin-card">
+        <div class="trends-header">
+          <h2 style="margin-bottom:0;">Traffic trends</h2>
+          <div class="trends-range">
+            <select id="trendsRange">
+              <option value="7">Last 7 days</option>
+              <option value="30" selected>Last 30 days</option>
+              <option value="90">Last 90 days</option>
+            </select>
+          </div>
+        </div>
+        <div class="trends-legend" style="margin-bottom:10px;">
+          <span><span class="dot" style="background:#4f46e5;"></span>Pageviews</span>
+          <span><span class="dot" style="background:#059669;"></span>Searches</span>
+          <span><span class="dot" style="background:#d97706;"></span>Apply clicks</span>
+        </div>
+        <div id="trendsChart"></div>
+      </div>
       <div class="admin-card">
         <h2>Last 7 days</h2>
         <div class="admin-grid">
@@ -102,9 +153,104 @@
         <p id="modError" style="color:#b91c1c; display:none; font-size:.85rem; margin-top:10px;"></p>
       </div>
     </div>
+
+    <div id="listingsSection" style="display:none">
+      <div class="admin-card">
+        <div class="mod-header">
+          <h2 style="margin-bottom:0;">All listings</h2>
+          <span class="mod-count" id="listingsCount">—</span>
+        </div>
+        <div class="listings-toolbar">
+          <input type="search" id="listingsSearch" placeholder="Search title, source, or location…" />
+          <select id="listingsTypeFilter">
+            <option value="">All types</option>
+            <option value="scholarship">Scholarship</option>
+            <option value="fellowship">Fellowship</option>
+            <option value="grant">Grant</option>
+            <option value="job">Job</option>
+            <option value="other">Other</option>
+          </select>
+          <button type="button" class="btn-secondary" id="listingsRefresh">Refresh</button>
+        </div>
+        <div class="mod-list" id="listingsList"></div>
+        <p class="mod-empty" id="listingsEmpty" style="display:none;">No listings match this search.</p>
+        <div class="pagination" id="listingsPagination" style="display:none;"></div>
+        <p id="listingsError" style="color:#b91c1c; display:none; font-size:.85rem; margin-top:10px;"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit listing modal -->
+  <div id="editModal" class="modal-overlay" style="display:none">
+    <div class="modal-box edit-modal-box">
+      <h3>Edit listing</h3>
+      <form id="editForm">
+        <input type="hidden" id="editId" />
+        <div class="edit-form-grid">
+          <div class="full-width">
+            <label for="editTitle">Title</label>
+            <input type="text" id="editTitle" required />
+          </div>
+          <div>
+            <label for="editType">Type</label>
+            <select id="editType">
+              <option value="scholarship">Scholarship</option>
+              <option value="fellowship">Fellowship</option>
+              <option value="grant">Grant</option>
+              <option value="job">Job</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div>
+            <label for="editStatus">Status</label>
+            <select id="editStatus">
+              <option value="true">Active</option>
+              <option value="false">Inactive</option>
+            </select>
+          </div>
+          <div>
+            <label for="editField">Field</label>
+            <input type="text" id="editField" />
+          </div>
+          <div>
+            <label for="editLocation">Location</label>
+            <input type="text" id="editLocation" />
+          </div>
+          <div>
+            <label for="editDeadline">Deadline (text)</label>
+            <input type="text" id="editDeadline" placeholder="e.g. Rolling, or a date string" />
+          </div>
+          <div>
+            <label for="editDeadlineAt">Deadline (date)</label>
+            <input type="date" id="editDeadlineAt" />
+          </div>
+          <div class="full-width">
+            <label for="editSourceName">Source name</label>
+            <input type="text" id="editSourceName" />
+          </div>
+          <div class="full-width">
+            <label for="editUrl">URL</label>
+            <input type="url" id="editUrl" required />
+          </div>
+          <div class="full-width">
+            <label for="editSummary">Summary</label>
+            <textarea id="editSummary"></textarea>
+          </div>
+          <div class="full-width">
+            <label for="editDescription">Description</label>
+            <textarea id="editDescription"></textarea>
+          </div>
+        </div>
+        <div style="display:flex; gap:10px; justify-content:flex-end;">
+          <button type="button" class="btn-secondary" id="closeEditModal">Cancel</button>
+          <button type="submit" class="btn-primary">Save changes</button>
+        </div>
+      </form>
+      <p id="editError" style="color:#b91c1c; display:none; font-size:.85rem; margin-top:10px;"></p>
+    </div>
   </div>
 
   <script src="config.js"></script>
-  <script src="js/admin.js?v=2"></script>
+  <script src="js/admin.js?v=3"></script>
 </body>
 </html>
