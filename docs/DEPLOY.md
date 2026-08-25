@@ -100,6 +100,6 @@ Copy `backend/.env.example` to `backend/.env` for local dev.
 
 ## Next steps (product)
 
-- Register a domain (e.g. `opportunityfinder.app` or `finder.adamu.tech`).
+- Domain registered: `globalopportunities.app` — see docs/DEPLOY-RENDER.md for the custom-domain DNS steps.
 - Add email alerts (Resend + saved searches).
 - Add Meilisearch for faster full-text search at scale.
