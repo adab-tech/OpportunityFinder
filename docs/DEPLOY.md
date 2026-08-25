@@ -79,7 +79,7 @@ Copy `backend/.env.example` to `backend/.env` for local dev.
 
 | Variable | Purpose |
 |----------|---------|
-| `DATABASE_URL` | SQLite locally; Postgres in production |
+| `DATABASE_URL` | SQLite locally; Postgres in production. Prefer [Neon](https://neon.tech)'s free tier over a platform's own free Postgres (e.g. Render) — Render's free Postgres auto-deletes the database 30 days after creation, which has already caused a production outage; Neon's free tier only autosuspends compute when idle and never deletes data. |
 | `ENABLE_SCHEDULER` | Background RSS + scrape jobs |
 | `CORS_ORIGINS` | Comma-separated origins, or `*` |
 | `PORT` | Set by Fly/Railway/Render (uvicorn listens here) |

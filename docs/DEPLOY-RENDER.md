@@ -4,15 +4,27 @@ No local CLI required — deploy from the Render dashboard in ~5 minutes.
 
 ## Steps
 
-1. Open **[render.com](https://render.com)** and sign up with your **GitHub** account (`adab-tech`).
-2. Click **New +** → **Blueprint**.
-3. Connect repository **`adab-tech/OpportunityFinder`** (branch `main`).
-4. Render reads `render.yaml` and proposes:
+1. Create a free Postgres database at **[neon.tech](https://neon.tech)** (sign up, **New Project**, pick any region/name). Once it's created, copy the **connection string** Neon shows you (starts with `postgres://` or `postgresql://`) — you'll need it in step 6.
+2. Open **[render.com](https://render.com)** and sign up with your **GitHub** account (`adab-tech`).
+3. Click **New +** → **Blueprint**.
+4. Connect repository **`adab-tech/OpportunityFinder`** (branch `main`).
+5. Render reads `render.yaml` and proposes:
    - Web service: `adab-opportunityfinder`
-   - Postgres: `opportunityfinder-db`
-5. Click **Apply** and wait for the first build (~5–10 min).
-6. When status is **Live**, open the URL Render shows, e.g.  
+6. Click **Apply** and wait for the first build (~5–10 min). Then go to the
+   web service → **Settings → Environment** and add `DATABASE_URL`, pasting
+   in the Neon connection string from step 1 (`render.yaml` no longer
+   provisions a database itself, so this must be set manually — Render's
+   Blueprint leaves it as `sync: false`). Redeploy after saving it.
+7. When status is **Live**, open the URL Render shows, e.g.  
    **https://adab-opportunityfinder.onrender.com**
+
+> **Why Neon instead of Render's own Postgres?** Render's **free** Postgres
+> plan auto-deletes the database 30 days after creation — this is what
+> caused a production outage here (the app failed to start with
+> `could not translate host name "dpg-..." to address`, because Render had
+> silently deleted `opportunityfinder-db`). Neon's free tier persists
+> indefinitely — it only autosuspends compute when idle, it never deletes
+> your data — so it's a safer fit for a long-lived free-tier deployment.
 
 ## Verify
 
@@ -54,7 +66,10 @@ same service, so it isn't relying on cross-origin CORS.)
 ## Free tier notes
 
 - The service **sleeps after ~15 min idle**; first visit may take 30–60s to wake.
-- Free Postgres is suitable for early production; upgrade when you outgrow limits.
+- Neon's free Postgres tier also autosuspends compute when idle (a brief
+  cold-start on the first query after a quiet period), but unlike Render's
+  free Postgres it does not delete the database after 30 days — data
+  persists indefinitely. Upgrade either tier when you outgrow its limits.
 
 ## Update the app
 
