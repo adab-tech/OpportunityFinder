@@ -94,6 +94,73 @@ class TestAdminListingsActions:
         assert response.status_code == 200
         assert response.json()["total"] == 1
 
+    def test_create_adds_an_approved_active_listing(self):
+        response = client.post(
+            "/api/v1/admin/opportunities/",
+            json={
+                "title": "Manually Added Fellowship",
+                "opportunity_type": "fellowship",
+                "url": f"{_TEST_URL_PREFIX}manual-1",
+                "field": "Public Health",
+                "location": "Kenya",
+            },
+            cookies=self._cookies(),
+        )
+        assert response.status_code == 201
+        body = response.json()
+        assert body["is_active"] is True
+        assert body["review_status"] == "approved"
+        assert body["title"] == "Manually Added Fellowship"
+        assert body["source_name"] == "Manual entry"
+
+        row = self.db.query(Opportunity).filter(Opportunity.id == body["id"]).first()
+        assert row is not None
+        assert row.title_normalized == "manually added fellowship"
+
+    def test_create_rejects_javascript_url(self):
+        response = client.post(
+            "/api/v1/admin/opportunities/",
+            json={
+                "title": "Bad URL Listing",
+                "opportunity_type": "grant",
+                "url": "javascript:alert(1)",
+            },
+            cookies=self._cookies(),
+        )
+        assert response.status_code == 400
+
+    def test_create_rejects_duplicate_url(self):
+        _make_row(self.db, "dup", url=f"{_TEST_URL_PREFIX}dup")
+        response = client.post(
+            "/api/v1/admin/opportunities/",
+            json={
+                "title": "Different Title, Same URL",
+                "opportunity_type": "grant",
+                "url": f"{_TEST_URL_PREFIX}dup",
+            },
+            cookies=self._cookies(),
+        )
+        assert response.status_code == 409
+
+    def test_create_requires_title_and_type(self):
+        response = client.post(
+            "/api/v1/admin/opportunities/",
+            json={"url": f"{_TEST_URL_PREFIX}missing-fields"},
+            cookies=self._cookies(),
+        )
+        assert response.status_code == 422
+
+    def test_create_requires_session(self):
+        response = client.post(
+            "/api/v1/admin/opportunities/",
+            json={
+                "title": "No Session",
+                "opportunity_type": "job",
+                "url": f"{_TEST_URL_PREFIX}no-session",
+            },
+        )
+        assert response.status_code == 401
+
     def test_update_edits_fields(self):
         opp = _make_row(self.db, "edit-me", title="Original Title")
         response = client.patch(

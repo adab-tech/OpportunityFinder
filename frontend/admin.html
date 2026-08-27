@@ -202,6 +202,7 @@
             <option value="other">Other</option>
           </select>
           <button type="button" class="btn-secondary" id="listingsRefresh">Refresh</button>
+          <button type="button" class="btn-primary" id="listingsAddBtn">+ Add opportunity</button>
         </div>
         <div class="mod-list" id="listingsList"></div>
         <p class="mod-empty" id="listingsEmpty" style="display:none;">No listings match this search.</p>
@@ -214,7 +215,7 @@
   <!-- Edit listing modal -->
   <div id="editModal" class="modal-overlay" style="display:none">
     <div class="modal-box edit-modal-box">
-      <h3>Edit listing</h3>
+      <h3 id="editModalTitle">Edit listing</h3>
       <form id="editForm">
         <input type="hidden" id="editId" />
         <div class="edit-form-grid">
@@ -274,7 +275,7 @@
         </div>
         <div style="display:flex; gap:10px; justify-content:flex-end;">
           <button type="button" class="btn-secondary" id="closeEditModal">Cancel</button>
-          <button type="submit" class="btn-primary">Save changes</button>
+          <button type="submit" class="btn-primary" id="editSubmitBtn">Save changes</button>
         </div>
       </form>
       <p id="editError" style="color:#b91c1c; display:none; font-size:.85rem; margin-top:10px;"></p>

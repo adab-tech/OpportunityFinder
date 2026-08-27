@@ -60,8 +60,11 @@ class TestSessionTokens:
 class TestLoginEndpoint:
     def setup_method(self):
         from app.config import settings
+        from app.routes import admin_auth
 
         self._prior = (settings.ADMIN_EMAIL, settings.ADMIN_PASSWORD_HASH, settings.SESSION_SECRET_KEY)
+        admin_auth._login_limiter._failures.clear()
+        admin_auth._login_limiter._locked_until.clear()
 
     def teardown_method(self):
         from app.config import settings
@@ -116,6 +119,84 @@ class TestLoginEndpoint:
             json={"email": "ADMIN@EXAMPLE.ORG", "password": "a-strong-password-123"},
         )
         assert response.status_code == 200
+
+
+class TestLoginLockout:
+    """No lockout existed before this — an attacker could brute-force
+    the single admin password with unlimited attempts. See
+    app/services/rate_limit.py::LoginAttemptLimiter.
+    """
+
+    def setup_method(self):
+        from app.config import settings
+        from app.routes import admin_auth
+
+        self.admin_auth = admin_auth
+        self._prior = (settings.ADMIN_EMAIL, settings.ADMIN_PASSWORD_HASH, settings.SESSION_SECRET_KEY)
+        admin_auth._login_limiter._failures.clear()
+        admin_auth._login_limiter._locked_until.clear()
+        settings.ADMIN_EMAIL = "lockout-test@example.org"
+        settings.ADMIN_PASSWORD_HASH = self._hash("a-strong-password-123")
+        settings.SESSION_SECRET_KEY = "test-secret"
+
+    def teardown_method(self):
+        from app.config import settings
+
+        settings.ADMIN_EMAIL, settings.ADMIN_PASSWORD_HASH, settings.SESSION_SECRET_KEY = self._prior
+        self.admin_auth._login_limiter._failures.clear()
+        self.admin_auth._login_limiter._locked_until.clear()
+
+    @staticmethod
+    def _hash(password: str) -> str:
+        from app.security import hash_password
+
+        return hash_password(password)
+
+    def _bad_login(self):
+        return client.post(
+            "/api/v1/admin/login",
+            json={"email": "lockout-test@example.org", "password": "wrong-password"},
+        )
+
+    def test_locks_out_after_max_attempts(self):
+        for _ in range(self.admin_auth._LOGIN_MAX_ATTEMPTS):
+            response = self._bad_login()
+            assert response.status_code == 401
+        # One more, still within the window, now locked out.
+        locked = self._bad_login()
+        assert locked.status_code == 429
+
+    def test_locked_out_rejects_even_the_correct_password(self):
+        for _ in range(self.admin_auth._LOGIN_MAX_ATTEMPTS):
+            self._bad_login()
+        response = client.post(
+            "/api/v1/admin/login",
+            json={"email": "lockout-test@example.org", "password": "a-strong-password-123"},
+        )
+        assert response.status_code == 429
+
+    def test_successful_login_resets_the_failure_count(self):
+        for _ in range(self.admin_auth._LOGIN_MAX_ATTEMPTS - 1):
+            self._bad_login()
+        success = client.post(
+            "/api/v1/admin/login",
+            json={"email": "lockout-test@example.org", "password": "a-strong-password-123"},
+        )
+        assert success.status_code == 200
+        # Failure count should be cleared, not still one shy of lockout.
+        response = self._bad_login()
+        assert response.status_code == 401
+
+    def test_different_email_is_not_affected_by_another_lockout(self):
+        for _ in range(self.admin_auth._LOGIN_MAX_ATTEMPTS):
+            self._bad_login()
+        # A wrong-but-different email must not be caught by the
+        # lockout recorded for "lockout-test@example.org".
+        response = client.post(
+            "/api/v1/admin/login",
+            json={"email": "someone-else@example.org", "password": "whatever"},
+        )
+        assert response.status_code == 401
 
 
 class TestSessionEndpoint:

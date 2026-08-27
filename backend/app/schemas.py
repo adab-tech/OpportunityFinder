@@ -115,6 +115,26 @@ class BulkModerationResponse(BaseModel):
     ids: list[int]
 
 
+class AdminOpportunityCreate(BaseModel):
+    """A manually-added listing — trusted by definition (an admin typed
+    it in directly), so it skips the moderation queue and goes live
+    immediately as review_status="approved", unlike the low-trust
+    open web-search discovery path (see routes/moderation.py).
+    """
+
+    title: str = Field(min_length=1, max_length=500)
+    opportunity_type: str
+    url: str
+    description: str | None = None
+    summary: str | None = None
+    field: str | None = None
+    location: str | None = None
+    deadline: str | None = None
+    deadline_at: date | None = None
+    source_name: str | None = None
+    tags: str | None = None
+
+
 class AdminOpportunityUpdate(BaseModel):
     """Partial update for the admin listing-management table — every
     field optional, only the ones the admin actually changed are sent.
