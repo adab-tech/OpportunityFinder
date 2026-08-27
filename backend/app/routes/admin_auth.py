@@ -17,11 +17,24 @@ from pydantic import BaseModel
 
 from app.config import settings
 from app.security import create_session_token, verify_password, verify_session_token
+from app.services.rate_limit import LockedOutError, LoginAttemptLimiter
 
 router = APIRouter(prefix="/admin", tags=["Admin Auth"])
 
 SESSION_COOKIE_NAME = "of_admin_session"
 _SESSION_MAX_AGE_SECONDS = 12 * 60 * 60
+
+# Keyed by submitted email, not caller IP — there's exactly one valid
+# admin account (see module docstring), so this directly protects it
+# regardless of how many source addresses an attacker spreads across.
+_LOGIN_MAX_ATTEMPTS = 5
+_LOGIN_WINDOW_SECONDS = 15 * 60
+_LOGIN_LOCKOUT_SECONDS = 15 * 60
+_login_limiter = LoginAttemptLimiter(
+    max_attempts=_LOGIN_MAX_ATTEMPTS,
+    window_seconds=_LOGIN_WINDOW_SECONDS,
+    lockout_seconds=_LOGIN_LOCKOUT_SECONDS,
+)
 
 
 class LoginRequest(BaseModel):
@@ -42,14 +55,26 @@ def login(request: LoginRequest, response: Response):
             "SESSION_SECRET_KEY unset).",
         )
 
+    login_key = request.email.strip().lower()
+    try:
+        _login_limiter.check(login_key)
+    except LockedOutError:
+        wait = _login_limiter.seconds_remaining(login_key)
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many failed attempts. Try again in {wait}s.",
+        ) from None
+
     # Always run verify_password, even on an email mismatch, so a wrong
     # email doesn't return faster than a wrong password and leak which
     # one was wrong via response timing.
-    email_matches = hmac.compare_digest(request.email.strip().lower(), settings.ADMIN_EMAIL.strip().lower())
+    email_matches = hmac.compare_digest(login_key, settings.ADMIN_EMAIL.strip().lower())
     password_matches = verify_password(request.password, settings.ADMIN_PASSWORD_HASH)
     if not (email_matches and password_matches):
+        _login_limiter.record_failure(login_key)
         raise HTTPException(status_code=401, detail="Invalid email or password.")
 
+    _login_limiter.record_success(login_key)
     token = create_session_token(settings.SESSION_SECRET_KEY)
     response.set_cookie(
         key=SESSION_COOKIE_NAME,

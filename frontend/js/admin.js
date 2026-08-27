@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   $('listingsTypeFilter').addEventListener('change', () => { listingsPage = 1; loadListings(); });
   $('closeEditModal').addEventListener('click', closeEditModal);
   $('editForm').addEventListener('submit', onEditSubmit);
+  $('listingsAddBtn').addEventListener('click', openAddModal);
 });
 
 function debounce(fn, ms) {
@@ -513,7 +514,30 @@ async function toggleActive(item) {
   }
 }
 
-/* ---------------- Edit listing modal ---------------- */
+/* ---------------- Add / edit listing modal ----------------
+   The same form and modal serve both: an empty #editId means "add" (POST
+   a new listing, always goes live immediately — no moderation queue for
+   something an admin typed in directly), a populated one means "edit"
+   (PATCH the existing row). */
+
+function openAddModal() {
+  $('editId').value = '';
+  $('editTitle').value = '';
+  $('editType').value = 'scholarship';
+  $('editStatus').value = 'true';
+  $('editField').value = '';
+  $('editLocation').value = '';
+  $('editDeadline').value = '';
+  $('editDeadlineAt').value = '';
+  $('editSourceName').value = '';
+  $('editUrl').value = '';
+  $('editSummary').value = '';
+  $('editDescription').value = '';
+  $('editError').style.display = 'none';
+  $('editModalTitle').textContent = 'Add opportunity';
+  $('editSubmitBtn').textContent = 'Add opportunity';
+  $('editModal').style.display = 'flex';
+}
 
 function openEditModal(item) {
   $('editId').value = item.id;
@@ -529,6 +553,8 @@ function openEditModal(item) {
   $('editSummary').value = item.summary || '';
   $('editDescription').value = item.description || '';
   $('editError').style.display = 'none';
+  $('editModalTitle').textContent = 'Edit listing';
+  $('editSubmitBtn').textContent = 'Save changes';
   $('editModal').style.display = 'flex';
 }
 
@@ -539,10 +565,11 @@ function closeEditModal() {
 async function onEditSubmit(e) {
   e.preventDefault();
   const id = $('editId').value;
+  const isNew = !id;
+
   const payload = {
     title: $('editTitle').value.trim(),
     opportunity_type: $('editType').value,
-    is_active: $('editStatus').value === 'true',
     field: $('editField').value.trim() || null,
     location: $('editLocation').value.trim() || null,
     deadline: $('editDeadline').value.trim() || null,
@@ -552,10 +579,16 @@ async function onEditSubmit(e) {
     summary: $('editSummary').value.trim() || null,
     description: $('editDescription').value.trim() || null,
   };
+  // A brand-new listing is always active — is_active only applies to
+  // editing an existing one (POST /admin/opportunities/ doesn't accept it).
+  if (!isNew) payload.is_active = $('editStatus').value === 'true';
+
+  const url = isNew ? `${API_BASE}/admin/opportunities/` : `${API_BASE}/admin/opportunities/${id}`;
+  const method = isNew ? 'POST' : 'PATCH';
 
   try {
-    const res = await fetch(`${API_BASE}/admin/opportunities/${id}`, {
-      method: 'PATCH',
+    const res = await fetch(url, {
+      method,
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -567,6 +600,7 @@ async function onEditSubmit(e) {
       return;
     }
     closeEditModal();
+    listingsPage = 1;
     loadListings();
   } catch (_) {
     $('editError').textContent = 'Cannot connect to the API.';

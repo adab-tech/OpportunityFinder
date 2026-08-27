@@ -14,7 +14,12 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Opportunity
 from app.routes.admin_auth import require_admin_session
-from app.schemas import AdminOpportunityUpdate, OpportunityResponse, PaginatedOpportunities
+from app.schemas import (
+    AdminOpportunityCreate,
+    AdminOpportunityUpdate,
+    OpportunityResponse,
+    PaginatedOpportunities,
+)
 from app.scrapers.dedup import normalize_title
 from app.scrapers.url_utils import clean_url
 
@@ -72,6 +77,41 @@ def list_all(
         total_pages=max(1, (total + per_page - 1) // per_page),
         data=items,
     )
+
+
+@router.post("/", response_model=OpportunityResponse, status_code=201)
+def create(request: AdminOpportunityCreate, db: Session = Depends(get_db)):
+    """Manually add a listing. Unlike every automated ingest path, this
+    one is trusted by construction (an admin typed it in), so it skips
+    the moderation queue entirely and goes live immediately.
+    """
+    cleaned_url = clean_url(request.url)
+    if cleaned_url is None:
+        raise HTTPException(status_code=400, detail="Invalid URL: must be a plain http:// or https:// link.")
+
+    if db.query(Opportunity).filter(Opportunity.url == cleaned_url).first():
+        raise HTTPException(status_code=409, detail="An opportunity with this URL already exists.")
+
+    opp = Opportunity(
+        title=request.title.strip(),
+        title_normalized=normalize_title(request.title),
+        description=request.description,
+        summary=request.summary,
+        opportunity_type=request.opportunity_type.lower(),
+        field=request.field,
+        location=request.location,
+        deadline=request.deadline,
+        deadline_at=request.deadline_at,
+        url=cleaned_url,
+        source_name=request.source_name or "Manual entry",
+        tags=request.tags,
+        is_active=True,
+        review_status="approved",
+    )
+    db.add(opp)
+    db.commit()
+    db.refresh(opp)
+    return opp
 
 
 @router.patch("/{opportunity_id}", response_model=OpportunityResponse)

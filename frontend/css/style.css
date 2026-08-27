@@ -674,6 +674,8 @@ body {
 
 .footer strong { color: var(--text); font-family: var(--font-display); font-weight: 600; }
 .footer-note { font-size: .74rem; color: var(--faint); }
+.footer-note a { color: var(--accent); text-decoration: none; }
+.footer-note a:hover { text-decoration: underline; }
 
 /* ------- Responsive ------- */
 @media (max-width: 900px) {
