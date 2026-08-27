@@ -1,0 +1,18 @@
+version: 2
+updates:
+  # backend/requirements.txt and backend/requirements-dev.txt — pip picks
+  # up every requirements*.txt file it finds in this directory.
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # Keep the CI/CodeQL/deploy workflow actions themselves (actions/checkout,
+  # github/codeql-action, etc.) patched too — an outdated action version is
+  # as real a supply-chain risk as an outdated Python package.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
