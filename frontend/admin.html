@@ -77,6 +77,37 @@
     }
     .edit-form-grid .full-width { grid-column: 1 / -1; }
     .edit-form-grid textarea { resize: vertical; min-height: 60px; }
+
+    /* .btn-primary has no equivalent in style.css (that file only
+       defines .btn-solid/.btn-ghost) — without this, the login and
+       save-changes buttons render as unstyled default browser buttons. */
+    .btn-primary {
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--accent); color: #fff; border: 1px solid var(--accent);
+      padding: 8px 16px; border-radius: var(--radius-sm); font-family: inherit;
+      font-size: .82rem; font-weight: 600; cursor: pointer;
+      transition: opacity var(--ease); white-space: nowrap;
+    }
+    .btn-primary:hover { opacity: .88; }
+
+    /* Narrower stat tiles fit 2 per row on small phones instead of
+       collapsing to 1 (was minmax(140px, 1fr)) — accounts for
+       .admin-card's own 28px padding nested inside .admin-wrap's. */
+    .admin-grid { grid-template-columns: repeat(auto-fit, minmax(95px, 1fr)); }
+
+    /* ------- Responsive: same breakpoint the public site uses for its
+       equivalent .row component, so admin rows and forms don't force
+       horizontal squeezing/truncation on a phone-width screen. ------- */
+    @media (max-width: 560px) {
+      .key-form { flex-direction: column; align-items: stretch; }
+      .key-form .email-input, .key-form .btn-primary { width: 100%; }
+
+      .edit-form-grid { grid-template-columns: 1fr; }
+
+      .mod-row, .listing-row { flex-direction: column; }
+      .mod-row-actions, .listing-row-actions { flex-direction: row; width: 100%; }
+      .mod-row-actions button, .listing-row-actions button { flex: 1; }
+    }
   </style>
 </head>
 <body>
