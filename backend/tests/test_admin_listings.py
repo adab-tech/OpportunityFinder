@@ -110,6 +110,30 @@ class TestAdminListingsActions:
         assert opp.title == "Corrected Title"
         assert opp.title_normalized == "corrected title"  # dedup key kept in sync
 
+    def test_update_rejects_javascript_url(self):
+        # Every ingest path sanitises url via clean_url() to block
+        # javascript:/data: links — this manual edit path must too.
+        opp = _make_row(self.db, "bad-url", url=f"{_TEST_URL_PREFIX}bad-url")
+        response = client.patch(
+            f"/api/v1/admin/opportunities/{opp.id}",
+            json={"url": "javascript:alert(1)"},
+            cookies=self._cookies(),
+        )
+        assert response.status_code == 400
+        self.db.refresh(opp)
+        assert opp.url == f"{_TEST_URL_PREFIX}bad-url"  # unchanged
+
+    def test_update_accepts_valid_url(self):
+        opp = _make_row(self.db, "good-url")
+        new_url = f"{_TEST_URL_PREFIX}good-url-updated"
+        response = client.patch(
+            f"/api/v1/admin/opportunities/{opp.id}",
+            json={"url": new_url},
+            cookies=self._cookies(),
+        )
+        assert response.status_code == 200
+        assert response.json()["url"] == new_url
+
     def test_update_unknown_id_returns_404(self):
         response = client.patch(
             "/api/v1/admin/opportunities/999999999",

@@ -20,6 +20,21 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
+
+def _safe_exc_summary(exc: Exception) -> str:
+    """Short, credential-safe description of a request failure.
+
+    Never interpolate str(exc) directly for calls that carry a secret —
+    requests' exception messages (HTTPError, ConnectionError, Timeout)
+    embed the full request URL, including query params. _search_via_api
+    passes GOOGLE_API_KEY as a query param, so logging str(exc) there
+    would write the live key into the server logs on every failure —
+    which happens routinely once the 100/day free quota is hit.
+    """
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    return f"{type(exc).__name__}(status={status})" if status else type(exc).__name__
+
+
 # Domains whose pages are never relevant opportunity listings
 EXCLUDE_DOMAINS = {
     "google.com", "youtube.com", "wikipedia.org", "twitter.com",
@@ -57,7 +72,7 @@ class GoogleScraper:
             r.raise_for_status()
             return [item["link"] for item in r.json().get("items", []) if "link" in item]
         except Exception as exc:
-            logger.warning(f"Google API search failed: {exc}")
+            logger.warning("Google API search failed: %s", _safe_exc_summary(exc))
             return []
 
     def _search_via_you_com(self, query: str, num: int) -> list[str]:
@@ -96,7 +111,7 @@ class GoogleScraper:
                 logger.warning("You.com response had no recognizable URL field in web results")
             return urls
         except Exception as exc:
-            logger.warning(f"You.com API search failed: {exc}")
+            logger.warning("You.com API search failed: %s", _safe_exc_summary(exc))
             return []
 
     def _search_via_library(self, query: str, num: int) -> list[str]:

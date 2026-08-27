@@ -13,8 +13,20 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models import AlertSubscription, Opportunity, SavedOpportunity, Subscriber
 from app.services.email_sender import EmailMessage, get_email_sender
+from app.services.rate_limit import CooldownLimiter
 
 logger = logging.getLogger(__name__)
+
+# No login is required for saved opportunities or alerts (by design — see
+# module docstring), so an email address is the only identity a caller
+# controls, and both actions below send that address a real email. Without
+# a per-email cooldown, anyone could mail-bomb an arbitrary victim just by
+# POSTing their address repeatedly. These are process-local (see
+# CooldownLimiter) — fine for this app's single-instance deployment.
+_ALERT_COOLDOWN_SECONDS = 60
+_SAVE_COOLDOWN_SECONDS = 10
+_alert_limiter = CooldownLimiter(_ALERT_COOLDOWN_SECONDS)
+_save_limiter = CooldownLimiter(_SAVE_COOLDOWN_SECONDS)
 
 
 def get_or_create_subscriber(db: Session, email: str) -> Subscriber:
@@ -64,6 +76,11 @@ def save_opportunity(db: Session, email: str, opportunity_id: int) -> SavedOppor
     )
     if existing:
         return existing
+
+    # Only a genuinely new save reaches here (a repeat save of the same
+    # item is a harmless no-op above, so it isn't rate-limited) — this is
+    # the path that sends an email, which is what the cooldown protects.
+    _save_limiter.check(subscriber.email)
 
     saved = SavedOpportunity(subscriber_id=subscriber.id, opportunity_id=opportunity_id)
     db.add(saved)
@@ -117,6 +134,8 @@ def create_alert(
     keyword: str | None = None,
 ) -> AlertSubscription:
     subscriber = get_or_create_subscriber(db, email)
+    _alert_limiter.check(subscriber.email)
+
     alert = AlertSubscription(
         subscriber_id=subscriber.id,
         opportunity_type=opportunity_type,

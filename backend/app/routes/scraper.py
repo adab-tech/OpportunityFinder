@@ -1,5 +1,6 @@
 import logging
 import threading
+import time
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 
@@ -14,12 +15,38 @@ router = APIRouter(prefix="/scraper", tags=["Scraper"])
 # requests cannot start a second run (check-and-set is atomic).
 _scrape_lock = threading.Lock()
 
+# The "Find new" button on the public homepage calls this endpoint with
+# no login required, by design — anyone can ask for a fresh scrape. But
+# without a floor between requests, a scripted caller could trigger runs
+# back-to-back forever, and each run can burn through the metered
+# You.com Search API ($5/1000 calls) or exhaust the Google CSE 100/day
+# free quota. This cooldown is global (not per-IP) so it can't be
+# sidestepped by spreading requests across source addresses.
+_MANUAL_TRIGGER_COOLDOWN_SECONDS = 300
+_last_triggered_at = 0.0
+_cooldown_lock = threading.Lock()
+
+
+def _enforce_cooldown() -> None:
+    global _last_triggered_at
+    with _cooldown_lock:
+        elapsed = time.monotonic() - _last_triggered_at
+        if elapsed < _MANUAL_TRIGGER_COOLDOWN_SECONDS:
+            wait = int(_MANUAL_TRIGGER_COOLDOWN_SECONDS - elapsed)
+            raise HTTPException(
+                status_code=429,
+                detail=f"A scrape was requested recently. Try again in {wait}s.",
+            )
+        _last_triggered_at = time.monotonic()
+
 
 @router.post("/run", response_model=ScrapeResponse)
 async def trigger_scrape(
     request: ScrapeRequest,
     background_tasks: BackgroundTasks,
 ):
+    _enforce_cooldown()
+
     if not _scrape_lock.acquire(blocking=False):
         raise HTTPException(status_code=409, detail="Scraping already in progress. Try again later.")
 
