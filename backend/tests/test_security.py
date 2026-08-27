@@ -95,7 +95,7 @@ class TestScrapeCooldown:
         self._prior_cooldown = scraper_route._MANUAL_TRIGGER_COOLDOWN_SECONDS
         self._prior_last = scraper_route._last_triggered_at
         scraper_route._MANUAL_TRIGGER_COOLDOWN_SECONDS = 100
-        scraper_route._last_triggered_at = 0.0
+        scraper_route._last_triggered_at = None
 
     def teardown_method(self):
         self.scraper_route._MANUAL_TRIGGER_COOLDOWN_SECONDS = self._prior_cooldown
