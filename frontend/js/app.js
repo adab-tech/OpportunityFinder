@@ -296,6 +296,9 @@ async function triggerScrape() {
     } else if (res.status === 409) {
       pollWhileScraping();
       toast('Scraping is already running. Please wait.', 'warn');
+    } else if (res.status === 429) {
+      const body = await res.json().catch(() => ({}));
+      toast(body.detail || 'Please wait before requesting another scrape.', 'warn');
     } else {
       toast('Could not start scraping. Check the API server.', 'error');
     }

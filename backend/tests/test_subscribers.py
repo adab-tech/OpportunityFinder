@@ -1,5 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.database import SessionLocal
@@ -7,11 +8,13 @@ from app.main import app
 from app.models import AlertSubscription, Opportunity, SavedOpportunity, Subscriber
 from app.services import subscribers as svc
 from app.services.email_sender import ConsoleEmailSender, EmailMessage
+from app.services.rate_limit import RateLimitedError
 
 client = TestClient(app)
 
 _TEST_EMAIL = "test-subscriber@example.org"
 _TEST_URL = "https://example.org/test-subscriber-opportunity"
+_TEST_URL_2 = "https://example.org/test-subscriber-opportunity-2"
 
 
 def _cleanup(db):
@@ -26,15 +29,17 @@ def _cleanup(db):
         )
     ).delete(synchronize_session=False)
     db.query(Subscriber).filter(Subscriber.email == _TEST_EMAIL).delete()
-    db.query(Opportunity).filter(Opportunity.url == _TEST_URL).delete()
+    db.query(Opportunity).filter(Opportunity.url.in_([_TEST_URL, _TEST_URL_2])).delete(
+        synchronize_session=False
+    )
     db.commit()
 
 
-def _make_opportunity(db) -> Opportunity:
+def _make_opportunity(db, url: str = _TEST_URL) -> Opportunity:
     opp = Opportunity(
         title="Test Opportunity For Saving",
         opportunity_type="scholarship",
-        url=_TEST_URL,
+        url=url,
         source_name="Test",
         is_active=True,
     )
@@ -51,10 +56,16 @@ class TestConsoleEmailSender:
         assert sender.send(message) is True
 
 
+def _reset_rate_limiters():
+    svc._alert_limiter._last_seen.clear()
+    svc._save_limiter._last_seen.clear()
+
+
 class TestSubscriberService:
     def setup_method(self):
         self.db = SessionLocal()
         _cleanup(self.db)
+        _reset_rate_limiters()
         self.opp = _make_opportunity(self.db)
 
     def teardown_method(self):
@@ -129,6 +140,7 @@ class TestSubscriberRoutes:
     def setup_method(self):
         self.db = SessionLocal()
         _cleanup(self.db)
+        _reset_rate_limiters()
         self.opp = _make_opportunity(self.db)
 
     def teardown_method(self):
@@ -171,3 +183,61 @@ class TestSubscriberRoutes:
         alert_id = alerts[0]["id"]
         response = client.delete(f"/api/v1/alerts/{subscriber.manage_token}/{alert_id}")
         assert response.status_code == 200
+
+
+class TestEmailBombingProtection:
+    """Neither /saved nor /alerts requires login (by design), so an email
+    address is the only identity a caller controls — and both actions
+    send that address a real email. Without a per-email cooldown, either
+    endpoint could be used to mail-bomb an arbitrary victim.
+    """
+
+    def setup_method(self):
+        self.db = SessionLocal()
+        _cleanup(self.db)
+        _reset_rate_limiters()
+        self.opp = _make_opportunity(self.db, _TEST_URL)
+        self.opp2 = _make_opportunity(self.db, _TEST_URL_2)
+
+    def teardown_method(self):
+        _cleanup(self.db)
+        self.db.close()
+
+    def test_second_alert_for_same_email_is_rate_limited(self):
+        svc.create_alert(self.db, _TEST_EMAIL, keyword="AI")
+        with pytest.raises(RateLimitedError):
+            svc.create_alert(self.db, _TEST_EMAIL, keyword="ML")
+
+    def test_second_alert_via_api_returns_429(self):
+        first = client.post("/api/v1/alerts", json={"email": _TEST_EMAIL, "keyword": "AI"})
+        assert first.status_code == 200
+        second = client.post("/api/v1/alerts", json={"email": _TEST_EMAIL, "keyword": "ML"})
+        assert second.status_code == 429
+
+    def test_different_emails_are_not_rate_limited_against_each_other(self):
+        svc.create_alert(self.db, _TEST_EMAIL, keyword="AI")
+        # A different address must never be blocked by someone else's cooldown.
+        svc.create_alert(self.db, "someone-else@example.org", keyword="AI")
+        db2 = SessionLocal()
+        try:
+            db2.query(AlertSubscription).filter(
+                AlertSubscription.subscriber_id.in_(
+                    db2.query(Subscriber.id).filter(Subscriber.email == "someone-else@example.org")
+                )
+            ).delete(synchronize_session=False)
+            db2.query(Subscriber).filter(Subscriber.email == "someone-else@example.org").delete()
+            db2.commit()
+        finally:
+            db2.close()
+
+    def test_second_new_save_for_same_email_is_rate_limited(self):
+        svc.save_opportunity(self.db, _TEST_EMAIL, self.opp.id)
+        with pytest.raises(RateLimitedError):
+            svc.save_opportunity(self.db, _TEST_EMAIL, self.opp2.id)
+
+    def test_repeat_save_of_same_opportunity_is_not_rate_limited(self):
+        # A duplicate save of the SAME item is a no-op that never emails,
+        # so it must not consume (or trip) the cooldown.
+        first = svc.save_opportunity(self.db, _TEST_EMAIL, self.opp.id)
+        second = svc.save_opportunity(self.db, _TEST_EMAIL, self.opp.id)
+        assert first.id == second.id

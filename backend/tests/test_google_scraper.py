@@ -89,6 +89,47 @@ class TestYouComSearch:
         assert kwargs["params"]["count"] == 100
 
 
+class TestApiKeyNotLeakedOnFailure:
+    """_search_via_api passes GOOGLE_API_KEY as a URL query param.
+    requests' own exception messages (HTTPError, ConnectionError, ...)
+    embed the full request URL, so logging str(exc) directly would leak
+    the live key into the server logs on every failure — which happens
+    routinely once the 100/day free quota is hit. See
+    google_scraper._safe_exc_summary.
+    """
+
+    def test_google_api_failure_does_not_log_the_key(self, caplog):
+        scraper = GoogleScraper()
+        secret = "super-secret-google-key-12345"
+        with patch("app.scrapers.google_scraper.settings") as mock_settings:
+            mock_settings.GOOGLE_API_KEY = secret
+            mock_settings.GOOGLE_CSE_ID = "cse-id"
+            with patch(
+                "app.scrapers.google_scraper.requests.get",
+                side_effect=Exception(f"boom https://www.googleapis.com/customsearch/v1?key={secret}"),
+            ):
+                with caplog.at_level("WARNING"):
+                    result = scraper._search_via_api("scholarship", 10)
+
+        assert result == []
+        assert secret not in caplog.text
+
+    def test_you_com_failure_does_not_log_the_key(self, caplog):
+        scraper = GoogleScraper()
+        secret = "super-secret-you-key-12345"
+        with patch("app.scrapers.google_scraper.settings") as mock_settings:
+            mock_settings.YOU_API_KEY = secret
+            with patch(
+                "app.scrapers.google_scraper.requests.get",
+                side_effect=Exception(f"boom, X-API-Key: {secret}"),
+            ):
+                with caplog.at_level("WARNING"):
+                    result = scraper._search_via_you_com("scholarship", 10)
+
+        assert result == []
+        assert secret not in caplog.text
+
+
 class TestSearchPriorityOrder:
     def test_you_com_used_when_google_not_configured(self):
         scraper = GoogleScraper()

@@ -16,6 +16,7 @@ from app.models import Opportunity
 from app.routes.admin_auth import require_admin_session
 from app.schemas import AdminOpportunityUpdate, OpportunityResponse, PaginatedOpportunities
 from app.scrapers.dedup import normalize_title
+from app.scrapers.url_utils import clean_url
 
 router = APIRouter(
     prefix="/admin/opportunities", tags=["Admin Listings"], dependencies=[Depends(require_admin_session)]
@@ -78,6 +79,19 @@ def update(opportunity_id: int, request: AdminOpportunityUpdate, db: Session = D
     opp = _get_or_404(db, opportunity_id)
 
     updates = request.model_dump(exclude_unset=True)
+
+    # Every ingest path (scraper, RSS) sanitises url through clean_url to
+    # block javascript:/data: links — this manual edit path must too, so
+    # an admin can't (accidentally or via a compromised session) put a
+    # non-http(s) URL on a listing that's already public.
+    if "url" in updates:
+        cleaned = clean_url(updates["url"])
+        if cleaned is None:
+            raise HTTPException(
+                status_code=400, detail="Invalid URL: must be a plain http:// or https:// link."
+            )
+        updates["url"] = cleaned
+
     for field_name, value in updates.items():
         setattr(opp, field_name, value)
 

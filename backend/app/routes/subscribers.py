@@ -19,13 +19,19 @@ from app.schemas import (
     SaveOpportunityRequest,
 )
 from app.services import subscribers as svc
+from app.services.rate_limit import RateLimitedError
 
 router = APIRouter(tags=["Saved Opportunities & Alerts"])
+
+_RATE_LIMIT_DETAIL = "Please wait a moment before trying again."
 
 
 @router.post("/saved", response_model=SavedOpportunityActionResponse)
 def save_opportunity(request: SaveOpportunityRequest, db: Session = Depends(get_db)):
-    result = svc.save_opportunity(db, request.email, request.opportunity_id)
+    try:
+        result = svc.save_opportunity(db, request.email, request.opportunity_id)
+    except RateLimitedError:
+        raise HTTPException(status_code=429, detail=_RATE_LIMIT_DETAIL) from None
     if result is None:
         raise HTTPException(status_code=404, detail="Opportunity not found")
     return SavedOpportunityActionResponse(
@@ -52,14 +58,17 @@ def unsave(manage_token: str, opportunity_id: int, db: Session = Depends(get_db)
 
 @router.post("/alerts", response_model=SavedOpportunityActionResponse)
 def create_alert(request: AlertCreateRequest, db: Session = Depends(get_db)):
-    svc.create_alert(
-        db,
-        email=request.email,
-        opportunity_type=request.opportunity_type,
-        field=request.field,
-        location=request.location,
-        keyword=request.keyword,
-    )
+    try:
+        svc.create_alert(
+            db,
+            email=request.email,
+            opportunity_type=request.opportunity_type,
+            field=request.field,
+            location=request.location,
+            keyword=request.keyword,
+        )
+    except RateLimitedError:
+        raise HTTPException(status_code=429, detail=_RATE_LIMIT_DETAIL) from None
     return SavedOpportunityActionResponse(
         status="created",
         message="Alert created. Check your email for a link to manage your alerts.",
