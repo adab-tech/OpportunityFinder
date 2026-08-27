@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     # Left unset by default so it always reflects the actual API_PORT in
     # local dev; set it explicitly in production (e.g. your Render URL).
     RESEND_API_KEY: str | None = None
-    ALERT_FROM_EMAIL: str = "OpportunityFinder <alerts@opportunityfinder.dev>"
+    ALERT_FROM_EMAIL: str = "Global Opportunities <alerts@globalopportunities.app>"
     PUBLIC_BASE_URL: str | None = None
     ALERT_DIGEST_INTERVAL_HOURS: int = 168  # weekly
 

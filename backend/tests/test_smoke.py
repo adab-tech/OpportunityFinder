@@ -12,10 +12,10 @@ def test_health():
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "healthy"
-    assert body["service"] == "OpportunityFinder"
+    assert body["service"] == "Global Opportunities"
 
 
 def test_api_root():
     response = client.get("/api")
     assert response.status_code == 200
-    assert response.json()["service"] == "OpportunityFinder API"
+    assert response.json()["service"] == "Global Opportunities API"
