@@ -1,6 +1,6 @@
-# OpportunityFinder
+# Global Opportunities
 
-OpportunityFinder is an AI-assisted opportunity discovery app for scholarships, fellowships, grants, and jobs.
+Global Opportunities is an AI-assisted opportunity discovery app for scholarships, fellowships, grants, and jobs.
 
 ## What is included
 

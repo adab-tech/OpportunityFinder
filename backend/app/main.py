@@ -40,15 +40,15 @@ async def lifespan(app: FastAPI):
     if settings.ENABLE_SCHEDULER:
         start_scheduler()
     threading.Thread(target=run_startup_tasks, daemon=True).start()
-    logger.info("OpportunityFinder API is ready.")
+    logger.info("Global Opportunities API is ready.")
     yield
     # ---- shutdown ----
     shutdown_scheduler()
-    logger.info("OpportunityFinder API stopped.")
+    logger.info("Global Opportunities API stopped.")
 
 
 app = FastAPI(
-    title="OpportunityFinder API",
+    title="Global Opportunities API",
     description=(
         "AI-powered web mining platform that discovers scholarships, "
         "fellowships, grants, and jobs from across the internet."
@@ -89,7 +89,7 @@ def health():
 
     body = {
         "status": "healthy" if db_ok else "degraded",
-        "service": "OpportunityFinder",
+        "service": "Global Opportunities",
         "database": "ok" if db_ok else "unavailable",
         "scheduler": settings.ENABLE_SCHEDULER,
     }
@@ -99,7 +99,7 @@ def health():
 @app.get("/api", tags=["System"])
 async def root():
     return {
-        "service": "OpportunityFinder API",
+        "service": "Global Opportunities API",
         "version": "1.0.0",
         "docs": "/docs",
         "health": "/health",

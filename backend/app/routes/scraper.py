@@ -23,21 +23,28 @@ _scrape_lock = threading.Lock()
 # free quota. This cooldown is global (not per-IP) so it can't be
 # sidestepped by spreading requests across source addresses.
 _MANUAL_TRIGGER_COOLDOWN_SECONDS = 300
-_last_triggered_at = 0.0
+# None means "never triggered yet" — deliberately not 0.0. time.monotonic()'s
+# zero point is unspecified (often near system/container boot, not epoch),
+# so a container whose clock hasn't yet reached the cooldown value would
+# have its very first real request wrongly rejected as "too soon" if we
+# measured elapsed time against a 0.0 sentinel.
+_last_triggered_at: float | None = None
 _cooldown_lock = threading.Lock()
 
 
 def _enforce_cooldown() -> None:
     global _last_triggered_at
     with _cooldown_lock:
-        elapsed = time.monotonic() - _last_triggered_at
-        if elapsed < _MANUAL_TRIGGER_COOLDOWN_SECONDS:
-            wait = int(_MANUAL_TRIGGER_COOLDOWN_SECONDS - elapsed)
-            raise HTTPException(
-                status_code=429,
-                detail=f"A scrape was requested recently. Try again in {wait}s.",
-            )
-        _last_triggered_at = time.monotonic()
+        now = time.monotonic()
+        if _last_triggered_at is not None:
+            elapsed = now - _last_triggered_at
+            if elapsed < _MANUAL_TRIGGER_COOLDOWN_SECONDS:
+                wait = int(_MANUAL_TRIGGER_COOLDOWN_SECONDS - elapsed)
+                raise HTTPException(
+                    status_code=429,
+                    detail=f"A scrape was requested recently. Try again in {wait}s.",
+                )
+        _last_triggered_at = now
 
 
 @router.post("/run", response_model=ScrapeResponse)

@@ -1,5 +1,5 @@
 /* =====================================================================
-   OpportunityFinder — app.js
+   Global Opportunities — app.js
    Communicates with the FastAPI backend at API_BASE.
    Change API_BASE if you deploy the backend to a different host/port.
    ===================================================================== */
