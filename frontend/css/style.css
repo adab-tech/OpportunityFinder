@@ -190,31 +190,59 @@ body {
 .btn-solid:disabled { opacity: .4; cursor: not-allowed; }
 .btn-block { width: 100%; }
 
+/* A step up from .btn-ghost for a secondary action that still matters
+   (alerts signup) — plain grey ghost made it read as an afterthought
+   next to the bold "Find new" button beside it. */
+.btn-accent {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: 1px solid transparent;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: .82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--ease);
+  white-space: nowrap;
+}
+
+.btn-accent:hover { background: var(--accent); color: #fff; }
+
 /* ------- Page head ------- */
 .page-head { padding: 36px 0 8px; }
 
 .page-title {
   font-family: var(--font-display);
-  font-size: clamp(1.4rem, 3vw, 1.85rem);
+  font-size: clamp(1.4rem, 3.4vw, 2.1rem);
   font-weight: 700;
   letter-spacing: -.02em;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .page-sub {
   font-size: .92rem;
   color: var(--muted);
   max-width: 640px;
-  margin-bottom: 10px;
+  margin-bottom: 14px;
 }
 
 .page-meta {
-  font-size: .78rem;
-  color: var(--faint);
+  font-size: .76rem;
+  font-weight: 500;
+  color: var(--muted);
   min-height: 18px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  padding: 5px 12px 5px 10px;
+  border-radius: 99px;
 }
 
 /* Live pulse dot in front of the freshness line */
@@ -316,12 +344,25 @@ body {
 
 .fselect-sm { width: auto; padding: 5px 8px; font-size: .78rem; color: var(--muted); }
 
-/* Sidebar alert CTA */
+/* Sidebar alert CTA — given real visual weight since it's the main
+   growth lever on the page, not just another informational box. */
 .sidebar-cta {
-  background: var(--surface);
-  border: 1px solid var(--border-soft);
+  background: linear-gradient(180deg, var(--accent-soft), var(--surface) 65%);
+  border: 1px solid var(--accent-soft);
   border-radius: var(--radius);
   padding: 16px;
+}
+
+.sidebar-cta-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--accent);
+  margin-bottom: 10px;
 }
 
 .sidebar-cta h3 {
