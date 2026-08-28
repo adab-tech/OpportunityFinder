@@ -7,7 +7,12 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Opportunity
-from app.schemas import OpportunityResponse, PaginatedOpportunities, StatsResponse
+from app.schemas import (
+    OpportunityResponse,
+    PaginatedOpportunities,
+    StatsResponse,
+    SuggestionsResponse,
+)
 
 router = APIRouter(prefix="/opportunities", tags=["Opportunities"])
 
@@ -86,6 +91,28 @@ def list_opportunities(
         total_pages=max(1, (total + per_page - 1) // per_page),
         data=items,
     )
+
+
+@router.get("/suggest", response_model=SuggestionsResponse)
+def suggest(
+    q: str = Query(..., min_length=2, max_length=100),
+    limit: int = Query(8, ge=1, le=20),
+    db: Session = Depends(get_db),
+):
+    """Distinct titles matching the query, for header search autocomplete."""
+    term = f"%{q}%"
+    # Postgres requires ORDER BY expressions to appear in the SELECT list
+    # for SELECT DISTINCT, so this orders alphabetically rather than by
+    # recency (fine for an autocomplete list).
+    titles = (
+        _public_visible(db.query(Opportunity.title).filter(Opportunity.is_active.is_(True)))
+        .filter(Opportunity.title.ilike(term))
+        .distinct()
+        .order_by(Opportunity.title.asc())
+        .limit(limit)
+        .all()
+    )
+    return SuggestionsResponse(suggestions=[t[0] for t in titles])
 
 
 @router.get("/stats", response_model=StatsResponse)

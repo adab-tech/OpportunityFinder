@@ -92,7 +92,15 @@ document.addEventListener('DOMContentLoaded', () => {
 function bindEvents() {
   /* Search */
   $('searchBtn').addEventListener('click', doSearch);
-  searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+  searchInput.addEventListener('keydown', onSearchInputKeydown);
+  searchInput.addEventListener('input', onSearchInputChange);
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.header-search')) hideSuggestions();
+  });
+
+  /* Copy the community-submission email */
+  const copyEmailBtn = $('copyEmailBtn');
+  if (copyEmailBtn) copyEmailBtn.addEventListener('click', onCopyEmail);
 
   /* Top nav pills */
   document.querySelectorAll('.nav-pill').forEach(btn => {
@@ -178,6 +186,130 @@ function doSearch() {
   state.page   = 1;
   if (state.search) trackEvent('search', state.search);
   fetchOpportunities();
+}
+
+/* ==========================================================================
+   Header search — autocomplete suggestions
+   ========================================================================== */
+const suggestionsList = $('searchSuggestions');
+let _suggestTimer = null;
+let _suggestActiveIndex = -1;
+let _suggestItems = [];
+
+function onSearchInputKeydown(e) {
+  const open = _suggestItems.length > 0 && !suggestionsList.hidden;
+  if (e.key === 'Enter') {
+    if (open && _suggestActiveIndex >= 0) {
+      e.preventDefault();
+      chooseSuggestion(_suggestItems[_suggestActiveIndex]);
+    } else {
+      doSearch();
+    }
+    return;
+  }
+  if (!open) return;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    setActiveSuggestion((_suggestActiveIndex + 1) % _suggestItems.length);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    setActiveSuggestion((_suggestActiveIndex - 1 + _suggestItems.length) % _suggestItems.length);
+  } else if (e.key === 'Escape') {
+    hideSuggestions();
+  }
+}
+
+function onSearchInputChange() {
+  const q = searchInput.value.trim();
+  clearTimeout(_suggestTimer);
+  if (q.length < 2) {
+    hideSuggestions();
+    return;
+  }
+  _suggestTimer = setTimeout(() => fetchSuggestions(q), 200);
+}
+
+function fetchSuggestions(q) {
+  fetch(`${API_BASE}/opportunities/suggest?q=${encodeURIComponent(q)}`)
+    .then(r => (r.ok ? r.json() : { suggestions: [] }))
+    .then(data => renderSuggestions(data.suggestions || []))
+    .catch(() => hideSuggestions());
+}
+
+function renderSuggestions(items) {
+  _suggestItems = items;
+  _suggestActiveIndex = -1;
+  if (!items.length) {
+    hideSuggestions();
+    return;
+  }
+  suggestionsList.innerHTML = items
+    .map((text, i) => `<li class="search-suggestion" role="option" data-index="${i}">${escapeHtml(text)}</li>`)
+    .join('');
+  suggestionsList.hidden = false;
+  searchInput.setAttribute('aria-expanded', 'true');
+  suggestionsList.querySelectorAll('.search-suggestion').forEach(el => {
+    el.addEventListener('mousedown', e => {
+      e.preventDefault();
+      chooseSuggestion(items[Number(el.dataset.index)]);
+    });
+  });
+}
+
+function setActiveSuggestion(index) {
+  _suggestActiveIndex = index;
+  suggestionsList.querySelectorAll('.search-suggestion').forEach((el, i) => {
+    el.classList.toggle('is-active', i === index);
+  });
+}
+
+function chooseSuggestion(text) {
+  searchInput.value = text;
+  hideSuggestions();
+  doSearch();
+}
+
+function hideSuggestions() {
+  suggestionsList.hidden = true;
+  suggestionsList.innerHTML = '';
+  _suggestItems = [];
+  _suggestActiveIndex = -1;
+  searchInput.setAttribute('aria-expanded', 'false');
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+/* ==========================================================================
+   Footer — copy community-submission email
+   ========================================================================== */
+function onCopyEmail(e) {
+  const btn = e.currentTarget;
+  const email = btn.dataset.email;
+  const label = btn.querySelector('.copy-btn-label');
+  const reset = () => { btn.classList.remove('is-copied'); if (label) label.textContent = 'Copy'; };
+
+  const onCopied = () => {
+    btn.classList.add('is-copied');
+    if (label) label.textContent = 'Copied!';
+    setTimeout(reset, 1800);
+  };
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(email).then(onCopied).catch(() => {});
+  } else {
+    const tmp = document.createElement('textarea');
+    tmp.value = email;
+    tmp.style.position = 'fixed';
+    tmp.style.opacity = '0';
+    document.body.appendChild(tmp);
+    tmp.select();
+    try { document.execCommand('copy'); onCopied(); } catch (_) { /* ignore */ }
+    document.body.removeChild(tmp);
+  }
 }
 
 /* Keep top-nav and filter pills in sync */

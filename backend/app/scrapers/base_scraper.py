@@ -3,10 +3,12 @@ Base HTTP scraper with user-agent rotation, robots.txt compliance,
 rate limiting, and common text-extraction helpers.
 """
 
+import ipaddress
 import logging
 import random
+import socket
 import time
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 from urllib.robotparser import RobotFileParser
 
 import requests
@@ -18,6 +20,40 @@ from app.scrapers.deadline_utils import extract_deadline
 from app.scrapers.keywords import FIELD_KEYWORDS
 
 logger = logging.getLogger(__name__)
+
+_MAX_REDIRECTS = 5
+
+
+def resolves_to_public_address(url: str) -> bool:
+    """False if the URL's host is missing, unresolvable, or resolves to
+    any private/loopback/link-local/reserved/multicast address.
+
+    Discovery URLs come from search results and RSS feeds — content
+    this app doesn't control. Without this check, a malicious or
+    compromised third-party page could redirect the scraper's request
+    into internal infrastructure (e.g. a cloud metadata endpoint) since
+    fetch_page previously followed redirects with no destination check
+    at all. Applied both to the initial URL and to every redirect hop.
+    """
+    host = urlparse(url).hostname
+    if not host:
+        return False
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except socket.gaierror:
+        return False
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if (
+            not ip.is_global
+            or ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_multicast
+            or ip.is_reserved
+        ):
+            return False
+    return True
 
 
 class BaseScraper:
@@ -62,6 +98,10 @@ class BaseScraper:
 
     def fetch_page(self, url: str, delay: bool = True) -> BeautifulSoup | None:
         """Fetch a URL and return a parsed BeautifulSoup tree, or None on failure."""
+        if not resolves_to_public_address(url):
+            logger.warning(f"Skipping {url} — does not resolve to a public address")
+            return None
+
         if not self._can_fetch(url):
             logger.info(f"Skipping {url} — blocked by robots.txt")
             return None
@@ -71,18 +111,35 @@ class BaseScraper:
 
         for attempt in range(settings.MAX_RETRIES):
             try:
-                response = self.session.get(
-                    url,
-                    headers=self._get_headers(),
-                    timeout=settings.REQUEST_TIMEOUT,
-                    allow_redirects=True,
-                )
-                response.raise_for_status()
-                content_type = response.headers.get("Content-Type", "")
-                if content_type and "html" not in content_type and "xml" not in content_type:
-                    logger.info(f"Skipping {url} — non-HTML content ({content_type})")
+                current_url = url
+                for _ in range(_MAX_REDIRECTS + 1):
+                    response = self.session.get(
+                        current_url,
+                        headers=self._get_headers(),
+                        timeout=settings.REQUEST_TIMEOUT,
+                        allow_redirects=False,
+                    )
+                    if response.is_redirect or response.is_permanent_redirect:
+                        location = response.headers.get("Location")
+                        if not location:
+                            return None
+                        next_url = urljoin(current_url, location)
+                        if not resolves_to_public_address(next_url):
+                            logger.warning(
+                                f"Skipping redirect from {current_url} to {next_url} — not a public address"
+                            )
+                            return None
+                        current_url = next_url
+                        continue
+                    response.raise_for_status()
+                    content_type = response.headers.get("Content-Type", "")
+                    if content_type and "html" not in content_type and "xml" not in content_type:
+                        logger.info(f"Skipping {url} — non-HTML content ({content_type})")
+                        return None
+                    return BeautifulSoup(response.text, "lxml")
+                else:
+                    logger.warning(f"Skipping {url} — too many redirects")
                     return None
-                return BeautifulSoup(response.text, "lxml")
             except requests.RequestException as exc:
                 logger.warning(f"Attempt {attempt + 1}/{settings.MAX_RETRIES} failed for {url}: {exc}")
                 if attempt < settings.MAX_RETRIES - 1:
