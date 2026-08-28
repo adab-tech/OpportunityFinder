@@ -95,6 +95,7 @@ body {
 }
 
 .header-search {
+  position: relative;
   flex: 1;
   display: flex;
   align-items: center;
@@ -717,6 +718,57 @@ body {
 .footer-note { font-size: .74rem; color: var(--faint); }
 .footer-note a { color: var(--accent); text-decoration: none; }
 .footer-note a:hover { text-decoration: underline; }
+
+.copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--muted);
+  font-family: inherit;
+  font-size: .7rem;
+  cursor: pointer;
+  transition: border-color var(--ease), color var(--ease);
+}
+
+.copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+.copy-btn.is-copied { border-color: var(--accent); color: var(--accent); }
+
+/* ------- Search autocomplete ------- */
+.search-suggestions {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(0,0,0,.12);
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.search-suggestion {
+  padding: 8px 10px;
+  border-radius: 7px;
+  font-size: .83rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.search-suggestion:hover,
+.search-suggestion.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
 
 /* ------- Responsive ------- */
 @media (max-width: 900px) {

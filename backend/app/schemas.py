@@ -38,6 +38,10 @@ class PaginatedOpportunities(BaseModel):
     data: list[OpportunityResponse]
 
 
+class SuggestionsResponse(BaseModel):
+    suggestions: list[str]
+
+
 class ScrapeRequest(BaseModel):
     opportunity_types: list[str] | None = Field(
         default_factory=lambda: ["scholarship", "fellowship", "grant", "job"]

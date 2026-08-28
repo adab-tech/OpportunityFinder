@@ -29,7 +29,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700&display=swap" rel="stylesheet" />
   <!-- ?v= is bumped on each visual/behavioural release so returning
        visitors' browsers fetch the new assets instead of stale caches -->
-  <link rel="stylesheet" href="css/style.css?v=3" />
+  <link rel="stylesheet" href="css/style.css?v=4" />
 
   <script type="application/ld+json">
   {
@@ -57,8 +57,11 @@
           <path d="M14 14L18 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
         <input id="searchInput" class="search-input" type="search"
-               placeholder="Search by keyword, field, or location…" />
+               placeholder="Search by keyword, field, or location…"
+               role="combobox" aria-expanded="false" aria-controls="searchSuggestions"
+               aria-autocomplete="list" autocomplete="off" />
         <button class="search-submit" id="searchBtn">Search</button>
+        <ul id="searchSuggestions" class="search-suggestions" role="listbox" hidden></ul>
       </div>
 
       <div class="header-actions">
@@ -225,11 +228,17 @@
     <div class="container footer-inner">
       <span><strong>Global Opportunities</strong> — scholarships, fellowships, grants, and jobs worldwide. Free, no account required.</span>
       <span class="footer-note">Every listing links to its official source — verify deadlines and eligibility there before applying.</span>
-      <span class="footer-note">Know a call for applications, scholarship, or job we're missing? Send it to <a href="mailto:hello@globalopportunities.app">hello@globalopportunities.app</a>.</span>
+      <span class="footer-note">Know a call for applications, scholarship, or job we're missing? Send it to
+        <a href="mailto:hello@globalopportunities.app">hello@globalopportunities.app</a>
+        <button type="button" class="copy-btn" id="copyEmailBtn" data-email="hello@globalopportunities.app" aria-label="Copy email address">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M2.5 10.5v-7a1 1 0 0 1 1-1h7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          <span class="copy-btn-label">Copy</span>
+        </button>
+      </span>
     </div>
   </footer>
 
   <script src="config.js"></script>
-  <script src="js/app.js?v=3"></script>
+  <script src="js/app.js?v=4"></script>
 </body>
 </html>
