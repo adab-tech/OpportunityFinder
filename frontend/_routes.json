@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "description": "Only these paths invoke _worker.js (to proxy to the Render API); everything else is served directly from Cloudflare's edge as a static asset.",
+  "include": ["/api", "/api/*", "/health", "/docs", "/openapi.json", "/redoc"],
+  "exclude": []
+}
