@@ -1,0 +1,17 @@
+{
+  // Deploys the static frontend (frontend/) plus worker/index.js as one
+  // Worker with static assets — Cloudflare's current recommended
+  // replacement for the Pages product. See docs/DEPLOY-CLOUDFLARE-WORKERS.md.
+  "name": "global-opportunities",
+  "compatibility_date": "2026-08-28",
+  "main": "./worker/index.js",
+  "assets": {
+    "directory": "./frontend",
+    "binding": "ASSETS"
+  },
+  "vars": {
+    // Overridable per-environment in the dashboard (Settings > Variables)
+    // or via `wrangler deploy --var API_ORIGIN:<url>` without editing this file.
+    "API_ORIGIN": "https://adab-opportunityfinder.onrender.com"
+  }
+}
