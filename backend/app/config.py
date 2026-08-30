@@ -43,15 +43,17 @@ class Settings(BaseSettings):
     ENABLE_SCHEDULER: bool = True
     CORS_ORIGINS: str = "*"
 
-    # Email alerts — with neither key set, emails are logged, not
+    # Email alerts — with none of these keys set, emails are logged, not
     # actually sent (see app/services/email_sender.py). Set one of
-    # RESEND_API_KEY or BREVO_API_KEY to send for real; if both are set,
-    # Resend takes priority. PUBLIC_BASE_URL is used to build the
-    # manage-your-alerts link in outgoing emails. Left unset by default
-    # so it always reflects the actual API_PORT in local dev; set it
-    # explicitly in production (e.g. your Render URL).
+    # RESEND_API_KEY, BREVO_API_KEY, or SENDGRID_API_KEY to send for
+    # real; if more than one is set, Resend takes priority, then Brevo.
+    # PUBLIC_BASE_URL is used to build the manage-your-alerts link in
+    # outgoing emails. Left unset by default so it always reflects the
+    # actual API_PORT in local dev; set it explicitly in production
+    # (e.g. your Render URL).
     RESEND_API_KEY: str | None = None
     BREVO_API_KEY: str | None = None
+    SENDGRID_API_KEY: str | None = None
     ALERT_FROM_EMAIL: str = "Global Opportunities <alerts@globalopportunities.app>"
     PUBLIC_BASE_URL: str | None = None
     ALERT_DIGEST_INTERVAL_HOURS: int = 168  # weekly

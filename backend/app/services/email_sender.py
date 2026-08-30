@@ -3,8 +3,9 @@
 No email provider is required to run this app. By default, emails are
 logged (ConsoleEmailSender) so every code path — save/alert signup,
 manage links, weekly digests — works end-to-end with zero setup. Set
-RESEND_API_KEY or BREVO_API_KEY to switch to real delivery via Resend
-(https://resend.com) or Brevo (https://brevo.com) with no code changes.
+RESEND_API_KEY, BREVO_API_KEY, or SENDGRID_API_KEY to switch to real
+delivery via Resend (https://resend.com), Brevo (https://brevo.com), or
+SendGrid (https://sendgrid.com) with no code changes.
 """
 
 import logging
@@ -118,9 +119,47 @@ class BrevoEmailSender(EmailSender):
             return False
 
 
+class SendGridEmailSender(EmailSender):
+    """Delivers via the SendGrid v3 Mail Send API
+    (https://docs.sendgrid.com/api-reference/mail-send/mail-send)."""
+
+    _ENDPOINT = "https://api.sendgrid.com/v3/mail/send"
+
+    def __init__(self, api_key: str, from_address: str):
+        self._api_key = api_key
+        # Same split as Brevo: SendGrid wants {email, name} rather than
+        # Resend's combined "Name <email>" string.
+        name, email = parseaddr(from_address)
+        self._from = {"email": email, "name": name} if name else {"email": email}
+
+    def send(self, message: EmailMessage) -> bool:
+        try:
+            response = requests.post(
+                self._ENDPOINT,
+                headers={"Authorization": f"Bearer {self._api_key}"},
+                json={
+                    "personalizations": [{"to": [{"email": message.to}]}],
+                    "from": self._from,
+                    "subject": message.subject,
+                    "content": [
+                        {"type": "text/plain", "value": message.text_body},
+                        {"type": "text/html", "value": message.html_body},
+                    ],
+                },
+                timeout=10,
+            )
+            response.raise_for_status()
+            return True
+        except requests.RequestException as exc:
+            logger.error("SendGrid email send failed for %s: %s", message.to, exc)
+            return False
+
+
 def get_email_sender() -> EmailSender:
     if settings.RESEND_API_KEY:
         return ResendEmailSender(settings.RESEND_API_KEY, settings.ALERT_FROM_EMAIL)
     if settings.BREVO_API_KEY:
         return BrevoEmailSender(settings.BREVO_API_KEY, settings.ALERT_FROM_EMAIL)
+    if settings.SENDGRID_API_KEY:
+        return SendGridEmailSender(settings.SENDGRID_API_KEY, settings.ALERT_FROM_EMAIL)
     return ConsoleEmailSender()
