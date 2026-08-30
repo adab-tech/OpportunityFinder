@@ -7,11 +7,18 @@
   <meta name="robots" content="noindex, nofollow" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
   <!-- ?v= bumped on each release so returning admins get fresh assets, not stale caches -->
-  <link rel="stylesheet" href="css/style.css?v=3" />
+  <link rel="stylesheet" href="css/style.css?v=6" />
   <style>
     .admin-wrap { max-width: 960px; margin: 40px auto; padding: 0 24px; }
     .admin-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; box-shadow: var(--shadow); margin-bottom: 20px; }
     .admin-card h2 { font-size: 1.05rem; margin-bottom: 14px; }
+    /* Standard screen-reader-only pattern: present to assistive tech,
+       removed from visual layout without display:none (which would
+       hide it from screen readers too). */
+    .visually-hidden {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+    }
     .admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; margin-bottom: 8px; }
     .admin-stat { text-align: center; padding: 14px; background: var(--bg); border-radius: var(--radius-sm); }
     .admin-stat .num { font-size: 1.6rem; font-weight: 800; }
@@ -111,7 +118,12 @@
   </style>
 </head>
 <body>
-  <div class="admin-wrap">
+  <main class="admin-wrap">
+    <!-- Always visible regardless of login state — the login-card
+         heading below is hidden once logged in, and every page needs
+         exactly one persistent h1. -->
+    <h1 class="visually-hidden">Global Opportunities — Admin</h1>
+
     <div class="admin-card">
       <h2>Global Opportunities — Admin Login</h2>
       <p style="color: var(--muted); font-size: .85rem; margin-bottom: 16px;">
@@ -193,7 +205,7 @@
         </div>
         <div class="listings-toolbar">
           <input type="search" id="listingsSearch" placeholder="Search title, source, or location…" />
-          <select id="listingsTypeFilter">
+          <select id="listingsTypeFilter" aria-label="Filter by opportunity type">
             <option value="">All types</option>
             <option value="scholarship">Scholarship</option>
             <option value="fellowship">Fellowship</option>
@@ -210,7 +222,7 @@
         <p id="listingsError" style="color:#b91c1c; display:none; font-size:.85rem; margin-top:10px;"></p>
       </div>
     </div>
-  </div>
+  </main>
 
   <!-- Edit listing modal -->
   <div id="editModal" class="modal-overlay" style="display:none">

@@ -29,7 +29,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700&display=swap" rel="stylesheet" />
   <!-- ?v= is bumped on each visual/behavioural release so returning
        visitors' browsers fetch the new assets instead of stale caches -->
-  <link rel="stylesheet" href="css/style.css?v=5" />
+  <link rel="stylesheet" href="css/style.css?v=6" />
 
   <script type="application/ld+json">
   {
@@ -74,17 +74,17 @@
     </div>
   </header>
 
-  <!-- ═══════════════════════════ PAGE HEAD ════════════════════════ -->
-  <section class="page-head">
-    <div class="container">
-      <h1 class="page-title">Open opportunities worldwide</h1>
-      <p class="page-sub">Scholarships, fellowships, grants, and jobs — plain-English summaries, real deadlines, refreshed automatically.</p>
-      <p class="page-meta" id="pageMeta"></p>
-    </div>
-  </section>
-
   <!-- ═══════════════════════════ MAIN ════════════════════════════ -->
   <main class="main">
+    <!-- ═══════════════════════════ PAGE HEAD ════════════════════════ -->
+    <section class="page-head">
+      <div class="container">
+        <h1 class="page-title">Open opportunities worldwide</h1>
+        <p class="page-sub">Scholarships, fellowships, grants, and jobs — plain-English summaries, real deadlines, refreshed automatically.</p>
+        <p class="page-meta" id="pageMeta"></p>
+      </div>
+    </section>
+
     <div class="container layout">
 
       <!-- Sidebar facets -->
@@ -101,7 +101,7 @@
         </div>
 
         <div class="facet-group">
-          <h2 class="facet-title">Field</h2>
+          <label class="facet-title" for="fieldFilter">Field</label>
           <select id="fieldFilter" class="fselect">
             <option value="">All fields</option>
             <option>STEM</option>
@@ -121,7 +121,7 @@
         </div>
 
         <div class="facet-group">
-          <h2 class="facet-title">Location</h2>
+          <label class="facet-title" for="locationFilter">Location</label>
           <select id="locationFilter" class="fselect">
             <option value="">All locations</option>
             <option>International</option>
