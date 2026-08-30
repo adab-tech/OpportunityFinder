@@ -1,0 +1,13 @@
+{
+  "name": "global-opportunities-frontend",
+  "private": true,
+  "description": "Dev-only test tooling for the frontend. The shipped site itself has no build step — these are devDependencies only, used to run `npm test` in CI.",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "jsdom": "^25.0.0",
+    "vitest": "^3.0.0"
+  }
+}
