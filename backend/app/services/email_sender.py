@@ -3,13 +3,14 @@
 No email provider is required to run this app. By default, emails are
 logged (ConsoleEmailSender) so every code path — save/alert signup,
 manage links, weekly digests — works end-to-end with zero setup. Set
-RESEND_API_KEY to switch to real delivery via Resend
-(https://resend.com) with no code changes.
+RESEND_API_KEY or BREVO_API_KEY to switch to real delivery via Resend
+(https://resend.com) or Brevo (https://brevo.com) with no code changes.
 """
 
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from email.utils import parseaddr
 
 import requests
 
@@ -81,7 +82,45 @@ class ResendEmailSender(EmailSender):
             return False
 
 
+class BrevoEmailSender(EmailSender):
+    """Delivers via the Brevo transactional email API
+    (https://developers.brevo.com/reference/sendtransacemail)."""
+
+    _ENDPOINT = "https://api.brevo.com/v3/smtp/email"
+
+    def __init__(self, api_key: str, from_address: str):
+        self._api_key = api_key
+        # Brevo wants sender name/email as separate fields, unlike
+        # Resend's combined "Name <email>" string already used for
+        # ALERT_FROM_EMAIL — parseaddr splits it without requiring a
+        # second, provider-specific settings field.
+        name, email = parseaddr(from_address)
+        self._sender = {"email": email, "name": name} if name else {"email": email}
+
+    def send(self, message: EmailMessage) -> bool:
+        try:
+            response = requests.post(
+                self._ENDPOINT,
+                headers={"api-key": self._api_key, "Content-Type": "application/json"},
+                json={
+                    "sender": self._sender,
+                    "to": [{"email": message.to}],
+                    "subject": message.subject,
+                    "htmlContent": message.html_body,
+                    "textContent": message.text_body,
+                },
+                timeout=10,
+            )
+            response.raise_for_status()
+            return True
+        except requests.RequestException as exc:
+            logger.error("Brevo email send failed for %s: %s", message.to, exc)
+            return False
+
+
 def get_email_sender() -> EmailSender:
     if settings.RESEND_API_KEY:
         return ResendEmailSender(settings.RESEND_API_KEY, settings.ALERT_FROM_EMAIL)
+    if settings.BREVO_API_KEY:
+        return BrevoEmailSender(settings.BREVO_API_KEY, settings.ALERT_FROM_EMAIL)
     return ConsoleEmailSender()

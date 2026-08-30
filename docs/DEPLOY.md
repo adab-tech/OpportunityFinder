@@ -84,6 +84,7 @@ Copy `backend/.env.example` to `backend/.env` for local dev.
 | `CORS_ORIGINS` | Comma-separated origins, or `*` |
 | `PORT` | Set by Fly/Railway/Render (uvicorn listens here) |
 | `GOOGLE_API_KEY` / `GOOGLE_CSE_ID` | Optional; improves discovery |
+| `RESEND_API_KEY` / `BREVO_API_KEY` | Optional; unset means alert/save-confirmation emails are logged, not sent. If both are set, Resend takes priority. |
 
 ## Health check
 
