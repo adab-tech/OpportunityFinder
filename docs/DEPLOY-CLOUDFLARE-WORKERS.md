@@ -91,6 +91,35 @@ point of view it's still one origin — **zero changes to cookies,
   the moderation queue loads (this is the real test of the cookie/CORS
   behavior above)
 
+## HTTP security headers
+
+A 2026-08 audit found no security headers (CSP, `X-Frame-Options`,
+`X-Content-Type-Options`, etc.) being sent anywhere. Two separate places
+needed them, since the two halves of this deployment never share a runtime:
+
+- **The API/docs, proxied to Render** — `backend/app/main.py` has an ASGI
+  middleware (`add_security_headers`) that sets them on every response, with
+  a path-scoped `Content-Security-Policy`: strict for JSON endpoints, a
+  looser CDN/inline-allowing one for `/docs` and `/redoc` (FastAPI's stock
+  Swagger UI / ReDoc pages), and one matching the frontend's below for the
+  local-dev fallback where this same app serves `frontend/` directly.
+- **The static site, edge-served** — `frontend/_headers` (Cloudflare's
+  native mechanism for this — see
+  [Headers](https://developers.cloudflare.com/workers/static-assets/headers/) —
+  confirmed via the Cloudflare docs MCP tool rather than assumed, since it
+  supersedes the old Pages-only convention; no `run_worker_first` needed
+  since nothing here has to run per-request). Verified against a real
+  `wrangler dev` locally, including a gotcha the docs don't call out: hitting
+  `/admin.html` 307-redirects to the extensionless `/admin`, so the CSP rule
+  has to target `/admin` too or the page that actually gets served carries
+  no policy at all.
+
+`Strict-Transport-Security` is unconditional in `_headers` (Cloudflare only
+serves this site over HTTPS) but conditional in the backend middleware on
+`settings.SESSION_COOKIE_SECURE` — the existing flag for "this is plain-http
+local dev" — so local development never gets an HSTS header a plain-http
+server can't honour.
+
 ## What does *not* change
 
 - The Render service keeps running exactly as-is — same Docker image, same

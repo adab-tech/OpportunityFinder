@@ -1,0 +1,58 @@
+# HTTP security headers for the static site (2026-08 audit: none were set
+# anywhere). Parsed by Cloudflare Workers static assets at the edge — see
+# https://developers.cloudflare.com/workers/static-assets/headers/ — and
+# applied to every file in this directory without the Worker script (worker/
+# index.js) ever running, matching how it already documents asset serving.
+#
+# Two things to know about this file's matching rules before editing it:
+#   - When more than one block matches a URL, ALL of them apply; if the same
+#     header name appears in more than one matching block, Cloudflare joins
+#     the values with a comma instead of picking one. That's harmless for
+#     most headers but would silently produce an invalid, unenforceable
+#     Content-Security-Policy (commas aren't a valid directive separator —
+#     only `;` is), so CSP is deliberately set in exactly one block per URL:
+#     the page-specific ones below, never the `/*` baseline.
+#   - Rules match the request path, not the resolved file, so both `/` and
+#     `/index.html` need their own block even though they serve the same file
+#     — and admin.html needs THREE: Cloudflare's default html_handling
+#     redirects both `/admin` and `/admin.html` requests to a canonical URL,
+#     but which one is canonical differs by request — checked against a
+#     local `wrangler dev`: `/admin.html` -> 307 -> `/admin`, so `/admin` (no
+#     extension) is what a browser actually lands on and needs the policy,
+#     not just `/admin.html`.
+
+# Baseline for every response: css/js/robots.txt/sitemap.xml/config.js, and
+# every page below inherits these too since no page block repeats them.
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+
+# index.html — same policy at both paths Cloudflare will actually receive
+# requests for. Only loads Google Fonts (fonts.googleapis.com/fonts.gstatic.com)
+# and one inline script: the `application/ld+json` SEO structured-data block.
+# JSON-LD can't be a separate file (crawlers expect it inline) and this static
+# file has no per-request templating to hang a nonce on, so it's allowlisted
+# by exact content hash instead of 'unsafe-inline' — the narrowest option that
+# still works for a fully static page. If that <script> block's content ever
+# changes, recompute the hash or the browser will silently drop the block:
+#   python3 -c "import hashlib,base64,re; h=open('index.html',encoding='utf-8').read(); m=re.search(r'<script type=\"application/ld\+json\">\n(.*?)</script>', h, re.S); print('sha256-' + base64.b64encode(hashlib.sha256(m.group(1).encode()).digest()).decode())"
+# style-src needs 'unsafe-inline' for the many style="..." attributes on
+# individual elements (checked: no <style> block or .cssText/style-string
+# writes in app.js, just per-property assignments, which CSP style-src
+# doesn't govern anyway — but the attributes do).
+/
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-pDG7ywLQCTavmocE0AIF4eN7Dq/Ibx1SKkzQ6wMOiBg='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'
+
+/index.html
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-pDG7ywLQCTavmocE0AIF4eN7Dq/Ibx1SKkzQ6wMOiBg='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'
+
+# admin.html — same needs minus the JSON-LD block (it has none: config.js and
+# js/admin.js are both external <script src>, no inline script anywhere), so
+# script-src stays 'self' with no hash/unsafe-inline needed at all.
+/admin.html
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'
+
+/admin
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'
