@@ -3,6 +3,10 @@
 X-Admin-Key header with a real account and a signed session cookie.
 """
 
+import base64
+import hashlib
+import hmac as hmac_module
+import struct
 from datetime import timedelta
 
 import pytest
@@ -11,7 +15,15 @@ from fastapi.testclient import TestClient
 from app.database import SessionLocal
 from app.main import app
 from app.models import RateLimitLockout
-from app.security import create_session_token, hash_password, verify_password, verify_session_token
+from app.security import (
+    create_session_token,
+    generate_totp_secret,
+    hash_password,
+    totp_provisioning_uri,
+    verify_password,
+    verify_session_token,
+    verify_totp_code,
+)
 from app.services.rate_limit import LockedOutError, LoginAttemptLimiter
 
 client = TestClient(app)
@@ -30,6 +42,20 @@ def _clear_login_lockout_state():
         db.commit()
     finally:
         db.close()
+
+
+def _totp_code(secret_b32: str, at: float, digits: int = 6) -> str:
+    """Recreates RFC 6238 TOTP (HMAC-SHA1, dynamic truncation) from
+    scratch, independently of app/security.py's implementation, so these
+    tests actually confirm the production code against the spec rather
+    than just asserting it agrees with itself.
+    """
+    key = base64.b32decode(secret_b32.upper())
+    counter = int(at) // 30
+    digest = hmac_module.new(key, struct.pack(">Q", counter), hashlib.sha1).digest()
+    offset = digest[-1] & 0x0F
+    truncated = int.from_bytes(digest[offset : offset + 4], "big") & 0x7FFFFFFF
+    return str(truncated % (10**digits)).zfill(digits)
 
 
 class TestPasswordHashing:
@@ -76,6 +102,71 @@ class TestSessionTokens:
         signature = hmac.new(b"secret-key", expired_expiry.encode(), hashlib.sha256).hexdigest()
         token = f"{expired_expiry}.{signature}"
         assert verify_session_token(token, "secret-key") is False
+
+
+class TestTotpVerification:
+    """RFC 6238 TOTP second factor (app/security.py). The seed is the RFC
+    6238 Appendix B SHA1 test-vector seed (the ASCII string
+    "12345678901234567890"), base32-encoded since that's the format this
+    codebase's TOTP functions take (the standard authenticator-app
+    format) rather than raw bytes.
+    """
+
+    RFC_SECRET_B32 = base64.b32encode(b"12345678901234567890").decode()
+
+    def test_matches_rfc_6238_test_vector_at_t59(self):
+        # RFC 6238 Appendix B: T=59s -> counter 1 -> 8-digit HOTP
+        # 94287082. This implementation truncates to 6 digits, which
+        # RFC 6238's truncation function makes the same value mod 10**6:
+        # 287082 (independently confirmed via _totp_code above).
+        assert verify_totp_code("287082", self.RFC_SECRET_B32, at=59) is True
+
+    def test_matches_rfc_6238_test_vector_at_t1111111109(self):
+        # T=1111111109 -> 8-digit 07081804 -> 6-digit 081804.
+        assert verify_totp_code("081804", self.RFC_SECRET_B32, at=1111111109) is True
+
+    def test_wrong_code_is_rejected(self):
+        assert verify_totp_code("000000", self.RFC_SECRET_B32, at=59) is False
+
+    def test_code_from_adjacent_step_is_accepted_for_clock_drift(self):
+        secret = generate_totp_secret()
+        at = 1_700_000_000.0
+        code_one_step_earlier = _totp_code(secret, at - 30)
+        code_one_step_later = _totp_code(secret, at + 30)
+        assert verify_totp_code(code_one_step_earlier, secret, at=at) is True
+        assert verify_totp_code(code_one_step_later, secret, at=at) is True
+
+    def test_code_two_steps_away_is_rejected(self):
+        secret = generate_totp_secret()
+        at = 1_700_000_000.0
+        code_two_steps_earlier = _totp_code(secret, at - 60)
+        assert verify_totp_code(code_two_steps_earlier, secret, at=at) is False
+
+    def test_current_code_round_trips_for_a_freshly_generated_secret(self):
+        secret = generate_totp_secret()
+        at = 1_700_000_000.0
+        assert verify_totp_code(_totp_code(secret, at), secret, at=at) is True
+
+    def test_malformed_code_fails_closed(self):
+        assert verify_totp_code(None, self.RFC_SECRET_B32, at=59) is False
+        assert verify_totp_code("", self.RFC_SECRET_B32, at=59) is False
+        assert verify_totp_code("12345", self.RFC_SECRET_B32, at=59) is False  # 5 digits
+        assert verify_totp_code("abcdef", self.RFC_SECRET_B32, at=59) is False  # not digits
+
+    def test_malformed_secret_fails_closed(self):
+        assert verify_totp_code("287082", "not valid base32!!", at=59) is False
+
+    def test_generated_secret_is_valid_base32_of_the_expected_length(self):
+        secret = generate_totp_secret()
+        decoded = base64.b32decode(secret)  # raises if not valid base32
+        assert len(decoded) == 20
+
+    def test_provisioning_uri_carries_the_secret_and_account(self):
+        secret = generate_totp_secret()
+        uri = totp_provisioning_uri(secret, "admin@example.org")
+        assert uri.startswith("otpauth://totp/")
+        assert f"secret={secret}" in uri
+        assert "admin%40example.org" in uri  # URL-encoded @
 
 
 class TestLoginEndpoint:
@@ -138,6 +229,128 @@ class TestLoginEndpoint:
             json={"email": "ADMIN@EXAMPLE.ORG", "password": "a-strong-password-123"},
         )
         assert response.status_code == 200
+
+    def test_login_unaffected_when_totp_secret_unset(self, monkeypatch):
+        # ADMIN_TOTP_SECRET unset (the default, and explicitly so here)
+        # must behave exactly like before this feature existed: no code
+        # required, and a stray one submitted anyway is simply ignored.
+        self._configure(monkeypatch)
+        monkeypatch.setattr("app.config.settings.ADMIN_TOTP_SECRET", None)
+        response = client.post(
+            "/api/v1/admin/login",
+            json={"email": "admin@example.org", "password": "a-strong-password-123", "totp_code": "000000"},
+        )
+        assert response.status_code == 200
+
+
+class TestLoginMethodsEndpoint:
+    def test_reports_totp_not_required_by_default(self, monkeypatch):
+        from app.config import settings
+
+        monkeypatch.setattr(settings, "ADMIN_TOTP_SECRET", None)
+        response = client.get("/api/v1/admin/login-methods")
+        assert response.status_code == 200
+        assert response.json() == {"totp_required": False}
+
+    def test_reports_totp_required_when_secret_configured(self, monkeypatch):
+        from app.config import settings
+
+        monkeypatch.setattr(settings, "ADMIN_TOTP_SECRET", generate_totp_secret())
+        response = client.get("/api/v1/admin/login-methods")
+        assert response.status_code == 200
+        assert response.json() == {"totp_required": True}
+
+
+class TestLoginWithTotp:
+    """Login endpoint behavior once ADMIN_TOTP_SECRET is configured (see
+    TestLoginEndpoint above for the unconfigured, password-only case).
+    """
+
+    def setup_method(self):
+        from app.routes import admin_auth
+
+        _clear_login_lockout_state()
+        admin_auth._last_used_totp_code = None
+
+    def teardown_method(self):
+        from app.routes import admin_auth
+
+        admin_auth._last_used_totp_code = None
+
+    def _configure(self, monkeypatch, email="admin@example.org", password="a-strong-password-123"):
+        from app.config import settings
+
+        secret = generate_totp_secret()
+        monkeypatch.setattr(settings, "ADMIN_EMAIL", email)
+        monkeypatch.setattr(settings, "ADMIN_PASSWORD_HASH", hash_password(password))
+        monkeypatch.setattr(settings, "SESSION_SECRET_KEY", "test-secret")
+        monkeypatch.setattr(settings, "ADMIN_TOTP_SECRET", secret)
+        return secret
+
+    def test_login_fails_without_a_code(self, monkeypatch):
+        self._configure(monkeypatch)
+        response = client.post(
+            "/api/v1/admin/login",
+            json={"email": "admin@example.org", "password": "a-strong-password-123"},
+        )
+        assert response.status_code == 401
+
+    def test_login_fails_with_a_wrong_code(self, monkeypatch):
+        secret = self._configure(monkeypatch)
+        # A code computed for a fixed timestamp far in the past (well
+        # outside the ±1-step drift window around the real "now" the
+        # server checks against) is guaranteed wrong.
+        stale_code = _totp_code(secret, at=1_700_000_000.0)
+        response = client.post(
+            "/api/v1/admin/login",
+            json={"email": "admin@example.org", "password": "a-strong-password-123", "totp_code": stale_code},
+        )
+        assert response.status_code == 401
+
+    def test_login_succeeds_with_the_correct_code(self, monkeypatch):
+        import time
+
+        secret = self._configure(monkeypatch)
+        code = _totp_code(secret, at=time.time())
+        response = client.post(
+            "/api/v1/admin/login",
+            json={"email": "admin@example.org", "password": "a-strong-password-123", "totp_code": code},
+        )
+        assert response.status_code == 200
+        assert "of_admin_session" in response.cookies
+
+    def test_correct_password_with_wrong_code_does_not_leak_which_field_was_wrong(self, monkeypatch):
+        # The error message must be identical (and generic) whether the
+        # password or the code was wrong, so a correct-password guess
+        # can't be confirmed via a different error message.
+        self._configure(monkeypatch)
+        wrong_password_resp = client.post(
+            "/api/v1/admin/login",
+            json={"email": "admin@example.org", "password": "wrong", "totp_code": "000000"},
+        )
+        wrong_code_resp = client.post(
+            "/api/v1/admin/login",
+            json={"email": "admin@example.org", "password": "a-strong-password-123", "totp_code": "000000"},
+        )
+        assert wrong_password_resp.status_code == wrong_code_resp.status_code == 401
+        assert wrong_password_resp.json()["detail"] == wrong_code_resp.json()["detail"]
+
+    def test_replaying_the_same_successful_code_is_rejected(self, monkeypatch):
+        import time
+
+        secret = self._configure(monkeypatch)
+        code = _totp_code(secret, at=time.time())
+        first = client.post(
+            "/api/v1/admin/login",
+            json={"email": "admin@example.org", "password": "a-strong-password-123", "totp_code": code},
+        )
+        assert first.status_code == 200
+
+        second = client.post(
+            "/api/v1/admin/login",
+            json={"email": "admin@example.org", "password": "a-strong-password-123", "totp_code": code},
+        )
+        assert second.status_code == 401
 
 
 class TestLoginLockout:

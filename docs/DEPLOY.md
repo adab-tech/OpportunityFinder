@@ -31,6 +31,7 @@ Copy `backend/.env.example` to `backend/.env` for local dev. Full definitions li
 | `GOOGLE_API_KEY` / `GOOGLE_CSE_ID` / `YOU_API_KEY` | Optional; improve discovery beyond the scraping fallback. |
 | `RESEND_API_KEY` / `BREVO_API_KEY` / `SENDGRID_API_KEY` | Optional; unset means alert/save-confirmation emails are logged, not sent. If more than one is set, Resend takes priority, then Brevo. |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD_HASH` / `SESSION_SECRET_KEY` | Required together for admin login (analytics + moderation queue). Generate the hash with `backend/scripts/hash_admin_password.py`. Unset means admin endpoints refuse every request. |
+| `ADMIN_TOTP_SECRET` | Optional second factor on top of the admin password. Unset (default) means login stays password-only; set it to also require a 6-digit authenticator code. Generate with `backend/scripts/generate_admin_totp_secret.py`. |
 | `PUBLIC_BASE_URL` | Builds the manage-your-alerts link in outgoing emails; set to your real domain in production. |
 
 ## Health check
