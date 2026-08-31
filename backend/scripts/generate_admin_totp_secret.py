@@ -38,10 +38,23 @@ def main() -> int:
     secret = generate_totp_secret()
     account_email = settings.ADMIN_EMAIL or "admin@example.org"
 
-    print("ADMIN_TOTP_SECRET=" + secret)
+    # CodeQL flags this as clear-text logging of a secret (py/clear-text-
+    # logging-sensitive-data) — accurate, but unavoidable by design: unlike
+    # hash_admin_password.py, which only ever prints a one-way PBKDF2 hash,
+    # there is no derived value to substitute here. An authenticator app
+    # needs the literal shared secret to generate matching codes, so a
+    # provisioning tool for it has to display the real value at least once.
+    # Run this only in a local, interactive terminal you trust — not piped
+    # to a file, not in a CI job, not in a session with shell history or
+    # scrollback shared with anyone else.
+    print("Caution: the secret below is shown in clear text. Only run this in a")
+    print("local, interactive terminal you trust — not piped to a file or a")
+    print("logged CI job, and not in a session anyone else can see or replay.")
+    print()
+    print("ADMIN_TOTP_SECRET=" + secret)  # lgtm[py/clear-text-logging-sensitive-data]
     print()
     print("Scan this as a QR code, or paste it directly into an app that accepts a URI:")
-    print(totp_provisioning_uri(secret, account_email))
+    print(totp_provisioning_uri(secret, account_email))  # lgtm[py/clear-text-logging-sensitive-data]
     if not settings.ADMIN_EMAIL:
         print()
         print(
