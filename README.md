@@ -1,16 +1,16 @@
 # Global Opportunities
 
-Global Opportunities is an AI-assisted opportunity discovery app for scholarships, fellowships, grants, and jobs.
+Global Opportunities is an AI-assisted discovery site for scholarships, fellowships, grants, and jobs — plain-English summaries, real deadlines, refreshed automatically.
 
-## What is included
+**Live:** https://globalopportunities.app
 
-- `backend/` - FastAPI API, database, scraping, and scheduled refresh jobs
-- `frontend/` - static UI that talks to the API
-- `opportunities.db` - local SQLite database used during development
+## Architecture
 
-## Quick start (Windows)
+- `backend/` — FastAPI API, Postgres (via [Neon](https://neon.tech)), scraping/RSS ingest, and scheduled refresh jobs. Deployed on [Render](https://render.com).
+- `frontend/` — static UI, no build step, served from Cloudflare's edge via a Worker (`worker/index.js` + `wrangler.jsonc`). The same worker proxies `/api/*`, `/health`, `/docs`, `/openapi.json`, and `/redoc` to the Render backend, so the browser only ever sees one origin.
+- `admin.html` — analytics + a moderation queue, gated behind email/password admin login (`app/routes/admin_auth.py`).
 
-Double-click `start.bat` in the repo root. The app opens at http://127.0.0.1:8000/ with curated opportunities loaded immediately; a background scrape adds more within a few minutes. Click **Find New** anytime to refresh.
+See [docs/DEPLOY-RENDER.md](docs/DEPLOY-RENDER.md) and [docs/DEPLOY-CLOUDFLARE-WORKERS.md](docs/DEPLOY-CLOUDFLARE-WORKERS.md) for the full deploy story, and [docs/DEPLOY.md](docs/DEPLOY.md) for local development and Docker.
 
 ## Local development
 
@@ -25,48 +25,29 @@ python -m pip install -r requirements.txt
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
+Copy `backend/.env.example` to `backend/.env` first. With nothing else set, the app runs on SQLite and logs alert/save-confirmation emails to the console instead of sending them.
+
 ### Frontend
 
-Serve the `frontend/` folder with any static web server, then point it at the API.
+Serve `frontend/` with any static web server; it talks to the API at the same origin (`/api/v1`) by default. To point it at a separately-hosted backend, set `window.OPPORTUNITYFINDER_API_BASE` in `frontend/config.js`.
 
-If the frontend and backend are deployed together on the same domain, the app will use `/api/v1` automatically.
-If they are deployed separately, set the API base before loading `js/app.js`:
+### Windows quick start
 
-```html
-<script>
-  window.OPPORTUNITYFINDER_API_BASE = 'https://your-api-host.example.com/api/v1';
-</script>
+Double-click `start.bat` — creates a venv, installs backend dependencies, and opens the app at http://127.0.0.1:8000/. Local only, not how production runs.
+
+## Optional discovery API keys
+
+`backend/.env.example` documents `GOOGLE_API_KEY` / `GOOGLE_CSE_ID` (Google Custom Search) and `YOU_API_KEY` (You.com) — both optional. Without them, the scraper falls back to public search scraping.
+
+## Email alerts
+
+Alert and save-confirmation emails are logged to the console by default — no provider required to run or test the feature end-to-end. Set `RESEND_API_KEY`, `BREVO_API_KEY`, or `SENDGRID_API_KEY` to send them for real; see `backend/app/services/email_sender.py`.
+
+## Tests
+
+```powershell
+cd backend && python -m pytest tests -v
+cd frontend && npm test
 ```
 
-The repo also includes `frontend/config.js` as the deployment hook for that value.
-Edit it when you want to point the static frontend at a separate backend host.
-
-If you are running locally from `file://`, the app falls back to `http://127.0.0.1:8000/api/v1`.
-
-## Optional search API keys
-
-`backend/.env.example` includes optional Google Custom Search settings:
-
-- `GOOGLE_API_KEY`
-- `GOOGLE_CSE_ID`
-
-Without those keys, the scraper falls back to public search scraping.
-
-## Deploy to the web
-
-**Recommended:** one container serves the UI and API on the same domain (simplest for users).
-
-| Method | Guide | CLI needed? |
-|--------|--------|-------------|
-| **Render** (easiest public URL) | [docs/DEPLOY-RENDER.md](docs/DEPLOY-RENDER.md) | No — GitHub + dashboard |
-| Fly.io | [docs/DEPLOY.md](docs/DEPLOY.md) | Yes (`flyctl auth login`) |
-| Docker + Postgres locally | `docker compose up --build` → http://localhost:8000 | Docker Desktop |
-
-Production uses **PostgreSQL** (`DATABASE_URL`) and **RSS feeds** for reliable ingest (ReliefWeb, Scholars4Dev, Opportunity Desk, and more). Optional Google CSE keys still improve discovery.
-
-## Production notes
-
-- Set `DATABASE_URL` to Postgres in production (see `docker-compose.yml` or Fly Postgres).
-- `ENABLE_SCHEDULER=true` on a single instance runs periodic RSS + scrape jobs.
-- `CORS_ORIGINS` defaults to `*`; restrict when the frontend is on another host.
-- Health: `GET /health` (used by Fly.io checks).
+CI (`.github/workflows/ci.yml`) runs both suites plus `ruff` lint on every push/PR to `main`.

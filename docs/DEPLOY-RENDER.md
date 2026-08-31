@@ -33,6 +33,14 @@ No local CLI required — deploy from the Render dashboard in ~5 minutes.
 
 ## Custom domain — globalopportunities.app
 
+**This is no longer how the live domain is wired up.** `globalopportunities.app`
+now points at a Cloudflare Worker that serves the frontend from the edge and
+proxies API calls to this Render service — see
+[DEPLOY-CLOUDFLARE-WORKERS.md](DEPLOY-CLOUDFLARE-WORKERS.md) for the actual
+current setup. The steps below are kept for reference if you ever want to run
+this backend standalone, pointed at directly by DNS instead of through the
+Worker.
+
 In the Render web service → **Settings → Custom Domains**, add both:
 
 - `globalopportunities.app` (apex)
@@ -60,8 +68,9 @@ so the app's own links point at the real domain instead of localhost:
 |----------|-------|
 | `PUBLIC_BASE_URL` | `https://globalopportunities.app` |
 
-(`CORS_ORIGINS` can stay `*` — the frontend is served same-origin from this
-same service, so it isn't relying on cross-origin CORS.)
+(`CORS_ORIGINS` can stay `*` — the frontend is served from Cloudflare's edge
+via a Worker that proxies API calls back to this service server-side, not by
+the browser making cross-origin requests; see docs/DEPLOY-CLOUDFLARE-WORKERS.md.)
 
 ## Free tier notes
 

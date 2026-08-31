@@ -1,13 +1,17 @@
-# Deploy OpportunityFinder
+# Deploy Global Opportunities
 
-One domain, one container: FastAPI serves `/api/v1` and the static `frontend/` on the same origin (no CORS headaches).
+Production is two pieces: the **backend** (FastAPI + Postgres) on Render, and the **frontend** (static, no build step) on Cloudflare Workers at the edge, which proxies API calls back to Render so the browser only ever sees one origin. See:
 
-## Option A — Docker Compose (local production test)
+- [DEPLOY-RENDER.md](DEPLOY-RENDER.md) — backend + database, from zero to a live URL
+- [DEPLOY-CLOUDFLARE-WORKERS.md](DEPLOY-CLOUDFLARE-WORKERS.md) — moving the frontend to the edge and wiring up the custom domain
+
+This doc covers local development only.
+
+## Docker Compose (local, with Postgres)
 
 Requirements: [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 
-```powershell
-cd "C:\Users\Adamu\Desktop\Project 101"
+```
 docker compose up --build
 ```
 
@@ -15,76 +19,19 @@ Open **http://localhost:8000/** — Postgres runs in the `db` service; data pers
 
 Stop: `docker compose down` (add `-v` to wipe the database).
 
-## Option B — Fly.io (public URL)
-
-1. Install the [Fly CLI](https://fly.io/docs/hands-on/install-flyctl/) and run `fly auth login`.
-2. From the repo root:
-
-**One-command deploy** (after `fly auth login`):
-
-```powershell
-cd "C:\Users\Adamu\Desktop\Project 101"
-.\scripts\deploy-fly.ps1
-```
-
-App name: **`adab-opportunityfinder`** → **https://adab-opportunityfinder.fly.dev**
-
-Manual steps (equivalent):
-
-```powershell
-fly launch --no-deploy --name adab-opportunityfinder --region lhr
-fly postgres create --name adab-opportunityfinder-db --region lhr --vm-size shared-cpu-1x --volume-size 1
-fly postgres attach adab-opportunityfinder-db -a adab-opportunityfinder
-fly deploy -a adab-opportunityfinder
-fly open -a adab-opportunityfinder
-```
-
-`DATABASE_URL` from Fly Postgres is normalized automatically for SQLAlchemy + psycopg2.
-
-### Custom domain on Fly
-
-```powershell
-fly certs add finder.yourdomain.com
-```
-
-Point DNS (CNAME) to the hostname Fly prints. HTTPS is automatic.
-
-## Option C — Railway / Render
-
-1. Create a **PostgreSQL** database on the platform.
-2. Deploy from this GitHub repo (`adab-tech/OpportunityFinder`) with:
-   - **Build:** Dockerfile at repo root
-   - **Start:** handled by Dockerfile (`PORT` is set by the platform)
-3. Environment variables:
-
-| Variable | Value |
-|----------|--------|
-| `DATABASE_URL` | Postgres URL from the provider (use `postgresql+psycopg2://...` if needed) |
-| `ENABLE_SCHEDULER` | `true` (only on **one** instance if you scale horizontally) |
-| `CORS_ORIGINS` | `*` or your static site origin if split later |
-
-## Split frontend later (optional)
-
-By default the UI uses same-origin `/api/v1`. To host the UI on GitHub Pages and API elsewhere, set in `frontend/config.js` before deploy:
-
-```javascript
-window.OPPORTUNITYFINDER_API_BASE = 'https://your-api.fly.dev/api/v1';
-```
-
-And set `CORS_ORIGINS` on the API to your Pages URL.
-
 ## Environment reference
 
-Copy `backend/.env.example` to `backend/.env` for local dev.
+Copy `backend/.env.example` to `backend/.env` for local dev. Full definitions live in `backend/app/config.py`; highlights:
 
 | Variable | Purpose |
 |----------|---------|
 | `DATABASE_URL` | SQLite locally; Postgres in production. Prefer [Neon](https://neon.tech)'s free tier over a platform's own free Postgres (e.g. Render) — Render's free Postgres auto-deletes the database 30 days after creation, which has already caused a production outage; Neon's free tier only autosuspends compute when idle and never deletes data. |
-| `ENABLE_SCHEDULER` | Background RSS + scrape jobs |
-| `CORS_ORIGINS` | Comma-separated origins, or `*` |
-| `PORT` | Set by Fly/Railway/Render (uvicorn listens here) |
-| `GOOGLE_API_KEY` / `GOOGLE_CSE_ID` | Optional; improves discovery |
+| `ENABLE_SCHEDULER` | Background RSS + scrape jobs — set `true` on exactly one instance if you scale horizontally. |
+| `CORS_ORIGINS` | Comma-separated origins, or `*`. |
+| `GOOGLE_API_KEY` / `GOOGLE_CSE_ID` / `YOU_API_KEY` | Optional; improve discovery beyond the scraping fallback. |
 | `RESEND_API_KEY` / `BREVO_API_KEY` / `SENDGRID_API_KEY` | Optional; unset means alert/save-confirmation emails are logged, not sent. If more than one is set, Resend takes priority, then Brevo. |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD_HASH` / `SESSION_SECRET_KEY` | Required together for admin login (analytics + moderation queue). Generate the hash with `backend/scripts/hash_admin_password.py`. Unset means admin endpoints refuse every request. |
+| `PUBLIC_BASE_URL` | Builds the manage-your-alerts link in outgoing emails; set to your real domain in production. |
 
 ## Health check
 
@@ -95,12 +42,6 @@ Copy `backend/.env.example` to `backend/.env` for local dev.
 
 1. DB tables created if missing.
 2. Curated seeds if the database is empty.
-3. RSS ingest from stable feeds (ReliefWeb, Scholars4Dev, Opportunity Desk, etc.).
+3. RSS ingest from stable feeds (ReliefWeb, Scholars4Dev, Opportunity Desk, and more).
 4. Background scrape if fewer than ~25 active listings.
 5. Scheduler (every 6h by default) if `ENABLE_SCHEDULER=true`.
-
-## Next steps (product)
-
-- Domain registered: `globalopportunities.app` — see docs/DEPLOY-RENDER.md for the custom-domain DNS steps.
-- Add email alerts (Resend + saved searches).
-- Add Meilisearch for faster full-text search at scale.
