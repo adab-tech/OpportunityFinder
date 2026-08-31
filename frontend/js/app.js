@@ -38,9 +38,7 @@ const resultsMeta = $('resultsMeta');
 const searchInput = $('searchInput');
 const scrapeBtn   = $('scrapeBtn');
 const modal       = $('modal');
-const alertsBtn   = $('alertsBtn');
 const saveModal   = $('saveModal');
-const alertsModal = $('alertsModal');
 
 /* opportunity id currently targeted by the save modal */
 let _pendingSaveId = null;
@@ -173,10 +171,6 @@ function bindEvents() {
   $('closeSaveModal').addEventListener('click', () => { saveModal.style.display = 'none'; });
   $('saveForm').addEventListener('submit', onSaveSubmit);
 
-  /* Alerts modal */
-  alertsBtn.addEventListener('click', () => { alertsModal.style.display = 'flex'; });
-  $('closeAlertsModal').addEventListener('click', () => { alertsModal.style.display = 'none'; });
-  $('alertsForm').addEventListener('submit', onAlertSubmit);
 }
 
 function doSearch() {
@@ -440,7 +434,7 @@ async function triggerScrape() {
 }
 
 /* ==========================================================================
-   Saved opportunities & alerts (no-password: email + manage link)
+   Saved opportunities (no-password: email + manage link)
    ========================================================================== */
 async function onSaveSubmit(e) {
   e.preventDefault();
@@ -460,37 +454,6 @@ async function onSaveSubmit(e) {
       $('saveForm').reset();
     } else {
       toast(body.detail || 'Could not save this opportunity.', 'error');
-    }
-  } catch (_) {
-    toast('Cannot connect to the API. Is the backend running?', 'error');
-  }
-}
-
-async function onAlertSubmit(e) {
-  e.preventDefault();
-  const email = $('alertsEmailInput').value.trim();
-  if (!email) return;
-
-  const payload = { email };
-  if (state.type)     payload.opportunity_type = state.type;
-  if (state.field)    payload.field = state.field;
-  if (state.location) payload.location = state.location;
-  if (state.search)   payload.keyword = state.search;
-
-  try {
-    const res = await fetch(`${API_BASE}/alerts`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const body = await res.json().catch(() => ({}));
-    if (res.ok) {
-      trackEvent('alert_create');
-      toast(body.message || 'Alert created! Check your email for a manage link.');
-      alertsModal.style.display = 'none';
-      $('alertsForm').reset();
-    } else {
-      toast(body.detail || 'Could not create this alert.', 'error');
     }
   } catch (_) {
     toast('Cannot connect to the API. Is the backend running?', 'error');

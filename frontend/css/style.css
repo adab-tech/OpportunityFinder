@@ -193,29 +193,6 @@ body {
 .btn-solid:disabled { opacity: .4; cursor: not-allowed; }
 .btn-block { width: 100%; }
 
-/* A step up from .btn-ghost for a secondary action that still matters
-   (alerts signup) — plain grey ghost made it read as an afterthought
-   next to the bold "Find new" button beside it. */
-.btn-accent {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  background: var(--accent-soft);
-  color: var(--accent);
-  border: 1px solid transparent;
-  padding: 8px 16px;
-  border-radius: var(--radius-sm);
-  font-family: inherit;
-  font-size: .82rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all var(--ease);
-  white-space: nowrap;
-}
-
-.btn-accent:hover { background: var(--accent); color: #fff; }
-
 /* ------- Page head ------- */
 .page-head { padding: 36px 0 8px; }
 
@@ -759,9 +736,9 @@ body {
   .facet-list { flex-direction: row; flex-wrap: wrap; }
   .facet { width: auto; }
 
-  /* Below this width, brand + search + actions no longer fit on one line
-     (the "Get alerts"/"Find new" buttons alone need ~240px) — wrap the
-     search bar onto its own full-width row instead of letting it overflow. */
+  /* Below this width, brand + search + "Find new" no longer fit on one
+     line — wrap the search bar onto its own full-width row instead of
+     letting it overflow. */
   .header-inner { flex-wrap: wrap; gap: 10px; }
   .header-search { order: 3; flex-basis: 100%; max-width: none; }
   .header-actions { margin-left: auto; }

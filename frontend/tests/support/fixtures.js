@@ -11,7 +11,6 @@ export const APP_HTML = `
     <button id="searchBtn"></button>
     <ul id="searchSuggestions" hidden></ul>
   </div>
-  <button id="alertsBtn"></button>
   <button id="scrapeBtn"></button>
 
   <select id="fieldFilter"></select>
@@ -37,13 +36,6 @@ export const APP_HTML = `
       <input id="saveEmailInput" type="email" />
     </form>
     <button id="closeSaveModal"></button>
-  </div>
-
-  <div id="alertsModal" style="display:none">
-    <form id="alertsForm">
-      <input id="alertsEmailInput" type="email" />
-    </form>
-    <button id="closeAlertsModal"></button>
   </div>
 
   <button id="copyEmailBtn" data-email="hello@globalopportunities.app">
