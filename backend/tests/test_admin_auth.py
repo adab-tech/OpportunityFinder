@@ -3,12 +3,33 @@
 X-Admin-Key header with a real account and a signed session cookie.
 """
 
+from datetime import timedelta
+
+import pytest
 from fastapi.testclient import TestClient
 
+from app.database import SessionLocal
 from app.main import app
+from app.models import RateLimitLockout
 from app.security import create_session_token, hash_password, verify_password, verify_session_token
+from app.services.rate_limit import LockedOutError, LoginAttemptLimiter
 
 client = TestClient(app)
+
+
+def _clear_login_lockout_state():
+    """Lockout state now lives in the DB (RateLimitLockout), not a
+    process-local dict — clear it directly so one test's lockout never
+    bleeds into the next. Safe to wipe the whole table: this runs
+    against the throwaway per-test-session SQLite file (see
+    tests/conftest.py), never the real dev/prod database.
+    """
+    db = SessionLocal()
+    try:
+        db.query(RateLimitLockout).delete()
+        db.commit()
+    finally:
+        db.close()
 
 
 class TestPasswordHashing:
@@ -60,11 +81,9 @@ class TestSessionTokens:
 class TestLoginEndpoint:
     def setup_method(self):
         from app.config import settings
-        from app.routes import admin_auth
 
         self._prior = (settings.ADMIN_EMAIL, settings.ADMIN_PASSWORD_HASH, settings.SESSION_SECRET_KEY)
-        admin_auth._login_limiter._failures.clear()
-        admin_auth._login_limiter._locked_until.clear()
+        _clear_login_lockout_state()
 
     def teardown_method(self):
         from app.config import settings
@@ -133,8 +152,7 @@ class TestLoginLockout:
 
         self.admin_auth = admin_auth
         self._prior = (settings.ADMIN_EMAIL, settings.ADMIN_PASSWORD_HASH, settings.SESSION_SECRET_KEY)
-        admin_auth._login_limiter._failures.clear()
-        admin_auth._login_limiter._locked_until.clear()
+        _clear_login_lockout_state()
         settings.ADMIN_EMAIL = "lockout-test@example.org"
         settings.ADMIN_PASSWORD_HASH = self._hash("a-strong-password-123")
         settings.SESSION_SECRET_KEY = "test-secret"
@@ -143,8 +161,7 @@ class TestLoginLockout:
         from app.config import settings
 
         settings.ADMIN_EMAIL, settings.ADMIN_PASSWORD_HASH, settings.SESSION_SECRET_KEY = self._prior
-        self.admin_auth._login_limiter._failures.clear()
-        self.admin_auth._login_limiter._locked_until.clear()
+        _clear_login_lockout_state()
 
     @staticmethod
     def _hash(password: str) -> str:
@@ -197,6 +214,66 @@ class TestLoginLockout:
             json={"email": "someone-else@example.org", "password": "whatever"},
         )
         assert response.status_code == 401
+
+
+class TestLockoutSurvivesRestart:
+    """The actual bug being fixed: the old in-memory dicts reset to
+    empty on every process restart, so a lockout could be trivially
+    bypassed just by waiting for, or triggering, one (a deploy, a
+    crash, Render's free-tier idle-then-wake cycle). Simulate a restart
+    by throwing away the limiter instance and constructing a brand new
+    one pointed at the same DB — it must still see the prior lockout,
+    unlike an in-memory dict would.
+    """
+
+    def setup_method(self):
+        _clear_login_lockout_state()
+
+    def teardown_method(self):
+        _clear_login_lockout_state()
+
+    def test_fresh_instance_still_sees_prior_lockout(self):
+        first_process_limiter = LoginAttemptLimiter(
+            max_attempts=3, window_seconds=900, lockout_seconds=900, namespace="restart_test"
+        )
+        for _ in range(3):
+            first_process_limiter.record_failure("attacker@example.org")
+
+        # Simulate a restart: an entirely new LoginAttemptLimiter object,
+        # as would be constructed fresh by a new Python process, but
+        # backed by the same database.
+        second_process_limiter = LoginAttemptLimiter(
+            max_attempts=3, window_seconds=900, lockout_seconds=900, namespace="restart_test"
+        )
+        with pytest.raises(LockedOutError):
+            second_process_limiter.check("attacker@example.org")
+
+    def test_fresh_instance_correctly_unlocks_after_lockout_elapses(self):
+        limiter = LoginAttemptLimiter(
+            max_attempts=3, window_seconds=900, lockout_seconds=900, namespace="restart_test"
+        )
+        for _ in range(3):
+            limiter.record_failure("attacker@example.org")
+
+        db = SessionLocal()
+        try:
+            row = (
+                db.query(RateLimitLockout)
+                .filter(
+                    RateLimitLockout.namespace == "restart_test",
+                    RateLimitLockout.key == "attacker@example.org",
+                )
+                .one()
+            )
+            row.locked_until = row.locked_until - timedelta(seconds=901)
+            db.commit()
+        finally:
+            db.close()
+
+        fresh_limiter = LoginAttemptLimiter(
+            max_attempts=3, window_seconds=900, lockout_seconds=900, namespace="restart_test"
+        )
+        fresh_limiter.check("attacker@example.org")  # must not raise
 
 
 class TestSessionEndpoint:

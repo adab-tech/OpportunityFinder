@@ -135,6 +135,60 @@ class AlertSubscription(Base):
     subscriber = relationship("Subscriber", back_populates="alert_subscriptions")
 
 
+class RateLimitCooldown(Base):
+    """Persisted state for CooldownLimiter (see app/services/rate_limit.py).
+
+    Used to survive process restarts (a deploy, a crash, Render's
+    free-tier idle-then-wake cycle) — this used to be an in-memory dict
+    that silently reset to empty on every restart, which meant a
+    determined caller could bypass the cooldown just by waiting for (or
+    triggering) one. `namespace` keeps independent limiter instances
+    from colliding on the same key: the save-cooldown and alert-cooldown
+    limiters in services/subscribers.py are both keyed by the same
+    subscriber email, so without a namespace a save would reset the
+    alert cooldown and vice versa.
+    """
+
+    __tablename__ = "rate_limit_cooldowns"
+    __table_args__ = (
+        UniqueConstraint("namespace", "key", name="uq_rate_limit_cooldown_namespace_key"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    namespace = Column(String(50), nullable=False, index=True)
+    key = Column(String(320), nullable=False)
+    last_seen_at = Column(DateTime(timezone=True), nullable=False)
+    # Optimistic-concurrency token, incremented on every update. Lets
+    # CooldownLimiter detect a concurrent writer via a conditional
+    # UPDATE ... WHERE version = :expected instead of needing
+    # SELECT ... FOR UPDATE (not supported by SQLite). See
+    # CooldownLimiter.check for the compare-and-swap loop this guards.
+    version = Column(Integer, nullable=False, default=0)
+
+
+class RateLimitLockout(Base):
+    """Persisted state for LoginAttemptLimiter (see
+    app/services/rate_limit.py) — same restart-durability rationale as
+    RateLimitCooldown above, and the same `version` compare-and-swap
+    token to keep concurrent failed-login attempts from undercounting
+    each other (a lost-update race here would let an attacker dodge the
+    lockout by racing requests).
+    """
+
+    __tablename__ = "rate_limit_lockouts"
+    __table_args__ = (
+        UniqueConstraint("namespace", "key", name="uq_rate_limit_lockout_namespace_key"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    namespace = Column(String(50), nullable=False, index=True)
+    key = Column(String(320), nullable=False)
+    failure_count = Column(Integer, nullable=False, default=0)
+    first_failure_at = Column(DateTime(timezone=True), nullable=True)
+    locked_until = Column(DateTime(timezone=True), nullable=True)
+    version = Column(Integer, nullable=False, default=0)
+
+
 class AnalyticsEvent(Base):
     """Minimal, self-hosted visitor analytics — no third-party tracker,
     no cookies, no PII. `client_id` is a random UUID the frontend
