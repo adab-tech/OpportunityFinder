@@ -30,10 +30,13 @@ _SESSION_MAX_AGE_SECONDS = 12 * 60 * 60
 _LOGIN_MAX_ATTEMPTS = 5
 _LOGIN_WINDOW_SECONDS = 15 * 60
 _LOGIN_LOCKOUT_SECONDS = 15 * 60
+# Persisted in the DB (app/models.py RateLimitLockout), not process
+# memory — see app/services/rate_limit.py's module docstring for why.
 _login_limiter = LoginAttemptLimiter(
     max_attempts=_LOGIN_MAX_ATTEMPTS,
     window_seconds=_LOGIN_WINDOW_SECONDS,
     lockout_seconds=_LOGIN_LOCKOUT_SECONDS,
+    namespace="admin_login",
 )
 
 

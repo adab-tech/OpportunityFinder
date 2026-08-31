@@ -21,12 +21,16 @@ logger = logging.getLogger(__name__)
 # module docstring), so an email address is the only identity a caller
 # controls, and both actions below send that address a real email. Without
 # a per-email cooldown, anyone could mail-bomb an arbitrary victim just by
-# POSTing their address repeatedly. These are process-local (see
-# CooldownLimiter) — fine for this app's single-instance deployment.
+# POSTing their address repeatedly. Persisted in the DB (app/models.py
+# RateLimitCooldown), not process memory — see app/services/rate_limit.py's
+# module docstring for why.
+# Distinct namespaces keep these two limiters from colliding: both are
+# keyed by the same subscriber email, so without a namespace a save
+# would reset the alert cooldown and vice versa.
 _ALERT_COOLDOWN_SECONDS = 60
 _SAVE_COOLDOWN_SECONDS = 10
-_alert_limiter = CooldownLimiter(_ALERT_COOLDOWN_SECONDS)
-_save_limiter = CooldownLimiter(_SAVE_COOLDOWN_SECONDS)
+_alert_limiter = CooldownLimiter(_ALERT_COOLDOWN_SECONDS, namespace="alert_cooldown")
+_save_limiter = CooldownLimiter(_SAVE_COOLDOWN_SECONDS, namespace="save_cooldown")
 
 
 def get_or_create_subscriber(db: Session, email: str) -> Subscriber:

@@ -1,18 +1,22 @@
 import logging
 import threading
-import time
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 
 from app.database import SessionLocal
 from app.schemas import ScrapeRequest, ScrapeResponse
 from app.scrapers.opportunity_scraper import OpportunityScraper
+from app.services.rate_limit import CooldownLimiter, RateLimitedError
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/scraper", tags=["Scraper"])
 
 # Non-blocking lock: acquired for the whole scrape so concurrent trigger
-# requests cannot start a second run (check-and-set is atomic).
+# requests cannot start a second run (check-and-set is atomic). This is
+# purely an in-process "is a scrape running right now" guard, not
+# restart-durable state — if the process restarts, any scrape thread
+# holding it is gone too, so resetting on restart is correct here,
+# unlike the cooldown below.
 _scrape_lock = threading.Lock()
 
 # The "Find new" button on the public homepage calls this endpoint with
@@ -20,31 +24,26 @@ _scrape_lock = threading.Lock()
 # without a floor between requests, a scripted caller could trigger runs
 # back-to-back forever, and each run can burn through the metered
 # You.com Search API ($5/1000 calls) or exhaust the Google CSE 100/day
-# free quota. This cooldown is global (not per-IP) so it can't be
-# sidestepped by spreading requests across source addresses.
+# free quota. This cooldown is global (not per-IP, hence the constant
+# key below) so it can't be sidestepped by spreading requests across
+# source addresses. Persisted in the DB (app/models.py RateLimitCooldown),
+# not process memory — see app/services/rate_limit.py's module docstring
+# for why: an in-memory version reset on every restart, so waiting for
+# (or triggering) a redeploy was an easy way to skip the cooldown.
 _MANUAL_TRIGGER_COOLDOWN_SECONDS = 300
-# None means "never triggered yet" — deliberately not 0.0. time.monotonic()'s
-# zero point is unspecified (often near system/container boot, not epoch),
-# so a container whose clock hasn't yet reached the cooldown value would
-# have its very first real request wrongly rejected as "too soon" if we
-# measured elapsed time against a 0.0 sentinel.
-_last_triggered_at: float | None = None
-_cooldown_lock = threading.Lock()
+_SCRAPE_COOLDOWN_KEY = "global"
+_scrape_cooldown_limiter = CooldownLimiter(_MANUAL_TRIGGER_COOLDOWN_SECONDS, namespace="scrape_trigger")
 
 
 def _enforce_cooldown() -> None:
-    global _last_triggered_at
-    with _cooldown_lock:
-        now = time.monotonic()
-        if _last_triggered_at is not None:
-            elapsed = now - _last_triggered_at
-            if elapsed < _MANUAL_TRIGGER_COOLDOWN_SECONDS:
-                wait = int(_MANUAL_TRIGGER_COOLDOWN_SECONDS - elapsed)
-                raise HTTPException(
-                    status_code=429,
-                    detail=f"A scrape was requested recently. Try again in {wait}s.",
-                )
-        _last_triggered_at = now
+    try:
+        _scrape_cooldown_limiter.check(_SCRAPE_COOLDOWN_KEY)
+    except RateLimitedError:
+        wait = _scrape_cooldown_limiter.seconds_remaining(_SCRAPE_COOLDOWN_KEY)
+        raise HTTPException(
+            status_code=429,
+            detail=f"A scrape was requested recently. Try again in {wait}s.",
+        ) from None
 
 
 @router.post("/run", response_model=ScrapeResponse)

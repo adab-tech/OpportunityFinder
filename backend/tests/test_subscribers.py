@@ -5,10 +5,10 @@ from fastapi.testclient import TestClient
 
 from app.database import SessionLocal
 from app.main import app
-from app.models import AlertSubscription, Opportunity, SavedOpportunity, Subscriber
+from app.models import AlertSubscription, Opportunity, RateLimitCooldown, SavedOpportunity, Subscriber
 from app.services import subscribers as svc
 from app.services.email_sender import ConsoleEmailSender, EmailMessage
-from app.services.rate_limit import RateLimitedError
+from app.services.rate_limit import CooldownLimiter, RateLimitedError
 
 client = TestClient(app)
 
@@ -57,8 +57,18 @@ class TestConsoleEmailSender:
 
 
 def _reset_rate_limiters():
-    svc._alert_limiter._last_seen.clear()
-    svc._save_limiter._last_seen.clear()
+    """Cooldown state now lives in the DB (RateLimitCooldown), not a
+    process-local dict — clear it directly so one test's cooldown never
+    bleeds into the next. Safe to wipe the whole table: this runs
+    against the throwaway per-test-session SQLite file (see
+    tests/conftest.py), never the real dev/prod database.
+    """
+    db = SessionLocal()
+    try:
+        db.query(RateLimitCooldown).delete()
+        db.commit()
+    finally:
+        db.close()
 
 
 class TestSubscriberService:
@@ -241,3 +251,54 @@ class TestEmailBombingProtection:
         first = svc.save_opportunity(self.db, _TEST_EMAIL, self.opp.id)
         second = svc.save_opportunity(self.db, _TEST_EMAIL, self.opp.id)
         assert first.id == second.id
+
+
+class TestCooldownSurvivesRestart:
+    """The actual bug being fixed: the old in-memory dict reset to empty
+    on every process restart, so a cooldown (or a lockout) could be
+    trivially bypassed just by waiting for, or triggering, one. Simulate
+    a restart by throwing away the limiter instance and constructing a
+    brand new one pointed at the same DB — it must still see the prior
+    state, unlike an in-memory dict would.
+    """
+
+    def setup_method(self):
+        self.db = SessionLocal()
+        self.db.query(RateLimitCooldown).delete()
+        self.db.commit()
+
+    def teardown_method(self):
+        self.db.query(RateLimitCooldown).delete()
+        self.db.commit()
+        self.db.close()
+
+    def test_fresh_instance_still_sees_prior_cooldown(self):
+        first_process_limiter = CooldownLimiter(60, namespace="restart_test")
+        first_process_limiter.check("someone@example.org")  # first call: allowed, recorded
+
+        # Simulate a restart: an entirely new CooldownLimiter object, as
+        # would be constructed fresh by a new Python process, but backed
+        # by the same database.
+        second_process_limiter = CooldownLimiter(60, namespace="restart_test")
+        with pytest.raises(RateLimitedError):
+            second_process_limiter.check("someone@example.org")
+
+    def test_fresh_instance_correctly_allows_after_window_elapses(self):
+        limiter = CooldownLimiter(60, namespace="restart_test")
+        limiter.check("someone@example.org")
+
+        # Backdate the persisted last_seen_at as if the cooldown window
+        # had genuinely elapsed before the "restart".
+        row = (
+            self.db.query(RateLimitCooldown)
+            .filter(
+                RateLimitCooldown.namespace == "restart_test",
+                RateLimitCooldown.key == "someone@example.org",
+            )
+            .one()
+        )
+        row.last_seen_at = row.last_seen_at - timedelta(seconds=61)
+        self.db.commit()
+
+        fresh_limiter = CooldownLimiter(60, namespace="restart_test")
+        fresh_limiter.check("someone@example.org")  # must not raise
