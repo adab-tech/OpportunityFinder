@@ -1,14 +1,19 @@
-# Move the frontend to Cloudflare Workers (edge-served static assets)
+# Cloudflare Workers (edge-served static assets)
 
-Today, `globalopportunities.app` is a Cloudflare-proxied DNS record pointing
-at the Render service, which serves both the API and the static frontend
-(`frontend/`) from one Docker container. Every visitor's HTML/CSS/JS still
-makes a round trip to Render's origin server (and can hit a cold start on
-Render's free tier if it's been idle).
+**This is live in production.** `globalopportunities.app` is a Cloudflare
+Worker (`worker/index.js` + `wrangler.jsonc`) that serves the static frontend
+(`frontend/`) from the edge and proxies API calls to the Render backend
+server-side. This doc is kept as the reference for how that's set up and for
+reproducing it (e.g. a fresh Cloudflare account, or a new environment).
 
-This moves the static frontend onto Cloudflare's edge network instead —
-faster worldwide, and immune to Render cold-starts for anything that isn't
-an API call — **without touching the backend or admin auth at all.**
+Before this move, `globalopportunities.app` was a Cloudflare-proxied DNS
+record pointing directly at the Render service, which served both the API
+and the static frontend from one Docker container — every visitor's
+HTML/CSS/JS made a round trip to Render's origin server, with a possible
+cold start on Render's free tier if it had been idle. Moving the static
+frontend onto Cloudflare's edge network instead is faster worldwide, and
+immune to Render cold-starts for anything that isn't an API call — **without
+touching the backend or admin auth at all.**
 
 > **Why "Workers" and not "Pages"?** Cloudflare's own current guidance:
 > "If you are starting a new project, use Workers instead of Pages. Pages

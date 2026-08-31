@@ -410,9 +410,10 @@ Dev deps live in `backend/requirements-dev.txt` (pytest, ruff). Prod deps in
 
 ## Deploy
 
-- **Render** (no CLI): docs/DEPLOY-RENDER.md
-- **Fly.io**: `scripts/deploy-fly.ps1` (app `adab-opportunityfinder`, region lhr);
-  needs `flyctl auth login` or `FLY_API_TOKEN`
+- **Backend (Render)**, no CLI: docs/DEPLOY-RENDER.md
+- **Frontend (Cloudflare Workers)**, edge-served static assets + API proxy:
+  docs/DEPLOY-CLOUDFLARE-WORKERS.md — this is what actually serves
+  `globalopportunities.app` today
 - **Docker local**: `docker compose up --build` (Postgres + API)
 - `/health` returns 503 when the DB is down — platform health checks rely on this.
 - Container runs as non-root `appuser`; keep it that way.
