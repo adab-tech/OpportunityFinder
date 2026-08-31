@@ -757,6 +757,20 @@ body {
   .modal-box { padding: 28px 20px; }
 }
 
+/* ------- Touch targets ------- */
+/* (pointer: coarse) matches touchscreens specifically, so mouse/trackpad
+   users keep the tighter desktop density — only touch input gets the
+   larger tap area (~44px, the standard mobile a11y guideline). */
+@media (pointer: coarse) {
+  .btn-solid, .btn-ghost, .search-submit, .btn-apply, .page-btn,
+  .facet, .fselect {
+    min-height: 44px;
+  }
+
+  .btn-save { min-height: 40px; }
+  .copy-btn { min-height: 36px; padding-top: 6px; padding-bottom: 6px; }
+}
+
 /* ------- Accessibility: visible focus states for keyboard navigation ------- */
 a:focus-visible,
 button:focus-visible,
