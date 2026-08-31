@@ -29,7 +29,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700&display=swap" rel="stylesheet" />
   <!-- ?v= is bumped on each visual/behavioural release so returning
        visitors' browsers fetch the new assets instead of stale caches -->
-  <link rel="stylesheet" href="css/style.css?v=8" />
+  <link rel="stylesheet" href="css/style.css?v=9" />
 
   <script type="application/ld+json">
   {
@@ -72,9 +72,6 @@
       </div>
 
       <div class="header-actions">
-        <button class="btn-accent" id="alertsBtn">
-          Get alerts
-        </button>
         <button class="btn-solid" id="scrapeBtn">Find new</button>
       </div>
     </div>
@@ -204,19 +201,6 @@
         <button type="submit" class="btn-solid">Save it</button>
       </form>
       <button class="btn-ghost" id="closeSaveModal">Cancel</button>
-    </div>
-  </div>
-
-  <!-- ═══════════════════════════ ALERTS SIGNUP MODAL ════════════════ -->
-  <div id="alertsModal" class="modal-overlay" style="display:none">
-    <div class="modal-box">
-      <h3>Get weekly alerts</h3>
-      <p>Weekly email when new opportunities match your current filters. No password, no spam.</p>
-      <form id="alertsForm" class="email-form">
-        <input type="email" id="alertsEmailInput" class="email-input" placeholder="you@example.com" required />
-        <button type="submit" class="btn-solid">Create alert</button>
-      </form>
-      <button class="btn-ghost" id="closeAlertsModal">Cancel</button>
     </div>
   </div>
 
