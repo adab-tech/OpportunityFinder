@@ -44,7 +44,13 @@ export const APP_HTML = `
 `;
 
 export const ADMIN_HTML = `
-  <form id="keyForm"><button type="submit"></button></form>
+  <form id="keyForm">
+    <input id="emailInput" type="email" />
+    <input id="passwordInput" type="password" />
+    <input id="totpInput" type="text" style="display:none;" />
+    <button type="submit"></button>
+  </form>
+  <p id="loginError" style="display:none;"></p>
   <button id="logoutBtn"></button>
   <button id="modRefresh"></button>
   <button id="modApproveAll"></button>

@@ -22,6 +22,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const authenticated = await checkSession();
   if (authenticated) {
     showLoggedInUI();
+  } else {
+    await applyLoginMethods();
   }
 
   $('keyForm').addEventListener('submit', onLoginSubmit);
@@ -57,19 +59,41 @@ async function checkSession() {
   }
 }
 
+// Only the server knows whether ADMIN_TOTP_SECRET is configured, so ask
+// it (GET /admin/login-methods, unauthenticated) before deciding whether
+// to show the code field at all — better than always showing an input
+// that does nothing for the common no-2FA case, or guessing. Best-effort:
+// if the check itself fails, leave the field hidden (unchanged, password-
+// only behavior) rather than blocking the page on it.
+async function applyLoginMethods() {
+  try {
+    const res = await fetch(`${API_BASE}/admin/login-methods`, { credentials: 'same-origin' });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.totp_required) {
+      $('totpInput').style.display = '';
+      $('totpInput').required = true;
+    }
+  } catch (_) { /* leave the code field hidden */ }
+}
+
 async function onLoginSubmit(e) {
   e.preventDefault();
   $('loginError').style.display = 'none';
   const email = $('emailInput').value.trim();
   const password = $('passwordInput').value;
+  const totpCode = $('totpInput').value.trim();
   if (!email || !password) return;
+
+  const body = { email, password };
+  if (totpCode) body.totp_code = totpCode;
 
   try {
     const res = await fetch(`${API_BASE}/admin/login`, {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
@@ -78,6 +102,7 @@ async function onLoginSubmit(e) {
       return;
     }
     $('passwordInput').value = '';
+    $('totpInput').value = '';
     showLoggedInUI();
   } catch (_) {
     $('loginError').textContent = 'Cannot connect to the API.';

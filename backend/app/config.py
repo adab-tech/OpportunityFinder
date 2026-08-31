@@ -84,6 +84,13 @@ class Settings(BaseSettings):
     # the real deployment. Local dev over plain http:// needs this set
     # to false or the browser silently refuses to store the cookie.
     SESSION_COOKIE_SECURE: bool = True
+    # Optional second factor (TOTP, RFC 6238) on top of the password —
+    # a base32 secret generated once via
+    # `scripts/generate_admin_totp_secret.py`. Unset (default) means
+    # login stays password-only, unchanged from before this existed; set
+    # it to require a 6-digit authenticator code on every login too (see
+    # app/security.py, app/routes/admin_auth.py).
+    ADMIN_TOTP_SECRET: str | None = None
 
     def cors_origin_list(self) -> list[str]:
         raw = (self.CORS_ORIGINS or "*").strip()

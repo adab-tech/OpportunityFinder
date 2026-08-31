@@ -132,6 +132,9 @@
       <form id="keyForm" class="key-form" style="flex-wrap: wrap;">
         <input type="email" id="emailInput" class="email-input" placeholder="Admin email" autocomplete="username" required />
         <input type="password" id="passwordInput" class="email-input" placeholder="Password" autocomplete="current-password" required />
+        <!-- Hidden until GET /admin/login-methods reports totp_required — only the
+             server knows whether ADMIN_TOTP_SECRET is configured. See admin.js. -->
+        <input type="text" id="totpInput" class="email-input" placeholder="6-digit code" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" maxlength="6" style="display:none;" />
         <button type="submit" class="btn-primary">Log In</button>
       </form>
       <p id="loginError" style="color:#b91c1c; font-size:.85rem; display:none; margin-top:10px;"></p>
