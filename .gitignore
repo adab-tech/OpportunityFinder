@@ -11,6 +11,9 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
+# Claude Code session-local worktrees (background agent scratch space)
+.claude/worktrees/
+
 # Node (frontend test tooling only — the shipped site has no build step)
 node_modules/
 .wrangler/
