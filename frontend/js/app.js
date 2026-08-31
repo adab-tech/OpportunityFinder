@@ -173,10 +173,8 @@ function bindEvents() {
   $('closeSaveModal').addEventListener('click', () => { saveModal.style.display = 'none'; });
   $('saveForm').addEventListener('submit', onSaveSubmit);
 
-  /* Alerts modal (header button + sidebar CTA) */
+  /* Alerts modal */
   alertsBtn.addEventListener('click', () => { alertsModal.style.display = 'flex'; });
-  const sidebarAlerts = $('sidebarAlertsBtn');
-  if (sidebarAlerts) sidebarAlerts.addEventListener('click', () => { alertsModal.style.display = 'flex'; });
   $('closeAlertsModal').addEventListener('click', () => { alertsModal.style.display = 'none'; });
   $('alertsForm').addEventListener('submit', onAlertSubmit);
 }

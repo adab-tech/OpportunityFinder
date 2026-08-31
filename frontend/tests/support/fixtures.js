@@ -13,7 +13,6 @@ export const APP_HTML = `
   </div>
   <button id="alertsBtn"></button>
   <button id="scrapeBtn"></button>
-  <button id="sidebarAlertsBtn"></button>
 
   <select id="fieldFilter"></select>
   <select id="locationFilter"></select>

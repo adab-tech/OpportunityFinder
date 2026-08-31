@@ -347,37 +347,6 @@ body {
 
 .fselect-sm { width: auto; padding: 5px 8px; font-size: .78rem; color: var(--muted); }
 
-/* Sidebar alert CTA — given real visual weight since it's the main
-   growth lever on the page, not just another informational box. */
-.sidebar-cta {
-  background: linear-gradient(180deg, var(--accent-soft), var(--surface) 65%);
-  border: 1px solid var(--accent-soft);
-  border-radius: var(--radius);
-  padding: 16px;
-}
-
-.sidebar-cta-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--accent);
-  margin-bottom: 10px;
-}
-
-.sidebar-cta h3 {
-  font-family: var(--font-display);
-  font-size: .9rem;
-  font-weight: 600;
-  letter-spacing: -.01em;
-  margin-bottom: 6px;
-}
-
-.sidebar-cta p { font-size: .78rem; color: var(--muted); margin-bottom: 12px; }
-
 /* ------- Results ------- */
 .results-bar {
   display: flex;
@@ -789,7 +758,6 @@ body {
   .facet-group { min-width: 150px; flex: 1; }
   .facet-list { flex-direction: row; flex-wrap: wrap; }
   .facet { width: auto; }
-  .sidebar-cta { display: none; } /* alerts still reachable from the header */
 
   /* Below this width, brand + search + actions no longer fit on one line
      (the "Get alerts"/"Find new" buttons alone need ~240px) — wrap the
