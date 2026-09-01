@@ -12,7 +12,7 @@ AI-assisted opportunity discovery app: scrapes/ingests scholarships, fellowships
 grants, and jobs, stores them in SQL, and serves them through a FastAPI API plus
 a static frontend on the same origin.
 
-- **Repo:** github.com/adab-tech/OpportunityFinder — local folder is `Desktop\Project 101` (name mismatch is intentional)
+- **Repo:** github.com/adab-tech/globalopportunities (renamed from OpportunityFinder; old URL redirects) — local folder is `Desktop\Project 101` (name mismatch is intentional)
 - **Backend:** FastAPI + SQLAlchemy 2 + APScheduler in `backend/app/`
   - `main.py` — app factory, CORS, health, static-file catch-all
   - `routes/` — opportunities API + scraper trigger

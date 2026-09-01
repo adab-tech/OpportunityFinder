@@ -163,7 +163,7 @@ class RssIngestor:
             try:
                 parsed = feedparser.parse(
                     feed_url,
-                    request_headers={"User-Agent": "OpportunityFinder/1.0 (+https://github.com/adab-tech/OpportunityFinder)"},
+                    request_headers={"User-Agent": "GlobalOpportunities/1.0 (+https://github.com/adab-tech/globalopportunities)"},
                 )
                 if getattr(parsed, "bozo", False) and not parsed.entries:
                     logger.warning("RSS parse issue for %s: %s", feed_url, parsed.get("bozo_exception"))

@@ -1,5 +1,5 @@
 # Sync local env values to GitHub Actions secrets (run locally; never commit .env).
-# Usage: .\scripts\sync-github-secrets.ps1 -Repo adab-tech/OpportunityFinder -EnvFile backend\.env
+# Usage: .\scripts\sync-github-secrets.ps1 -Repo adab-tech/globalopportunities -EnvFile backend\.env
 
 param(
     [Parameter(Mandatory = $true)]
