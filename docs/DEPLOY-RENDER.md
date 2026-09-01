@@ -7,7 +7,7 @@ No local CLI required — deploy from the Render dashboard in ~5 minutes.
 1. Create a free Postgres database at **[neon.tech](https://neon.tech)** (sign up, **New Project**, pick any region/name). Once it's created, copy the **connection string** Neon shows you (starts with `postgres://` or `postgresql://`) — you'll need it in step 6.
 2. Open **[render.com](https://render.com)** and sign up with your **GitHub** account (`adab-tech`).
 3. Click **New +** → **Blueprint**.
-4. Connect repository **`adab-tech/OpportunityFinder`** (branch `main`).
+4. Connect repository **`adab-tech/globalopportunities`** (branch `main`).
 5. Render reads `render.yaml` and proposes:
    - Web service: `adab-opportunityfinder`
 6. Click **Apply** and wait for the first build (~5–10 min). Then go to the

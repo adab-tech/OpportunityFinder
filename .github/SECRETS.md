@@ -1,6 +1,6 @@
 # GitHub repository secrets
 
-Configure under **Settings → Secrets and variables → Actions** for [adab-tech/OpportunityFinder](https://github.com/adab-tech/OpportunityFinder).
+Configure under **Settings → Secrets and variables → Actions** for [adab-tech/globalopportunities](https://github.com/adab-tech/globalopportunities).
 
 | Secret | Required | Purpose |
 |--------|----------|---------|
@@ -18,6 +18,6 @@ docs/DEPLOY-CLOUDFLARE-WORKERS.md.
 **Sync from local `.env` (run on your machine):**
 
 ```powershell
-gh secret set GOOGLE_API_KEY --repo adab-tech/OpportunityFinder --body "YOUR_KEY"
-gh secret set GOOGLE_CSE_ID --repo adab-tech/OpportunityFinder --body "YOUR_CX_ID"
+gh secret set GOOGLE_API_KEY --repo adab-tech/globalopportunities --body "YOUR_KEY"
+gh secret set GOOGLE_CSE_ID --repo adab-tech/globalopportunities --body "YOUR_CX_ID"
 ```

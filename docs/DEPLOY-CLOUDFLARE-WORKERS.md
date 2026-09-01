@@ -70,7 +70,7 @@ point of view it's still one origin — **zero changes to cookies,
 1. **Workers & Pages** (may appear simply as **Workers**, or under a
    **Compute** section — it's an account-level item, not inside the
    domain/zone view) → **Create application** → **Workers** → connect the
-   `adab-tech/OpportunityFinder` repo, branch `main`.
+   `adab-tech/globalopportunities` repo, branch `main`.
 2. Build settings: none needed — `wrangler.jsonc` at the repo root already
    declares everything (entry point, assets directory, the `API_ORIGIN`
    default).
